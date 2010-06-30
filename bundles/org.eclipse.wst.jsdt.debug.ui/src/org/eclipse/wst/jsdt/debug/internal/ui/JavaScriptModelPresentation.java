@@ -11,7 +11,7 @@
 package org.eclipse.wst.jsdt.debug.internal.ui;
 
 import java.io.File;
-import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 
 import org.eclipse.core.filesystem.EFS;
@@ -260,7 +260,12 @@ public class JavaScriptModelPresentation extends LabelProvider implements IDebug
 	 */
 	String getElementPath(String path) {
 		if(! showQualifiedNames()) {
-			return URIUtil.lastSegment(URI.create(path));
+			try {
+				return URIUtil.lastSegment(URIUtil.fromString(path));
+			}
+			catch(URISyntaxException urise) {
+				JavaScriptDebugUIPlugin.log(urise);
+			}
 		}
 		return path;
 	}
