@@ -46,6 +46,7 @@ import org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptLoadBreakpoint;
 import org.eclipse.wst.jsdt.debug.core.model.IJavaScriptValue;
 import org.eclipse.wst.jsdt.debug.core.model.IScript;
 import org.eclipse.wst.jsdt.debug.core.model.IScriptGroup;
+import org.eclipse.wst.jsdt.debug.internal.core.TextUtils;
 import org.eclipse.wst.jsdt.debug.internal.core.model.JavaScriptValue;
 
 /**
@@ -169,12 +170,8 @@ public class JavaScriptModelPresentation extends LabelProvider implements IDebug
 	 * @return the display text for the given script
 	 */
 	String getScriptText(IScript script) {
-		StringBuffer buffer = new StringBuffer();
-		buffer.append(URIUtil.lastSegment(script.sourceURI()));
-		buffer.append(" ("); //$NON-NLS-1$
-		buffer.append(script.sourceURI().toString());
-		buffer.append(")"); //$NON-NLS-1$
-		return buffer.toString();
+		String uri = script.sourceURI().toString();
+		return TextUtils.shortenText(uri, 100);
 	}
 
 	/**
