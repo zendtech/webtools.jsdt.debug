@@ -424,7 +424,7 @@
    <extension
          point="org.eclipse.wst.jsdt.ui.javaElementFilters">
       <filter
-            class="org.eclipse.wst.jsdt.debug.internal.ui.ExternalSourceProjectFilter"
+            class="org.eclipse.wst.jsdt.debug.internal.ui.filters.ExternalSourceProjectFilter"
             description="%jsdtProjectFilter.description"
             enabled="true"
             id="jsdt.external.source.project.filter"
@@ -434,7 +434,7 @@
    <extension
          point="org.eclipse.jdt.ui.javaElementFilters">
       <filter
-            class="org.eclipse.wst.jsdt.debug.internal.ui.ExternalSourceProjectFilter"
+            class="org.eclipse.wst.jsdt.debug.internal.ui.filters.ExternalSourceProjectFilter"
             description="%jdtProjectFilter.description"
             enabled="true"
             id="jdt.external.source.project.filter"

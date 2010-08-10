@@ -8,7 +8,7 @@
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
-package org.eclipse.wst.jsdt.debug.internal.ui;
+package org.eclipse.wst.jsdt.debug.internal.ui.filters;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.jface.viewers.Viewer;
@@ -32,7 +32,7 @@ public class ExternalSourceProjectFilter extends ViewerFilter {
 	 */
 	public boolean select(Viewer viewer, Object parentElement, Object element) {
 		if(element instanceof IProject) {
-			return !((IProject)element).getName().equals(Messages.external_javascript_source);
+			return !((IProject)element).getName().equals(FilterMessages.external_javascript_source);
 		}
 		return true;
 	}
