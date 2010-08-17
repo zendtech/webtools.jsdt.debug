@@ -272,13 +272,10 @@ public final class PacketReceiveManager extends PacketManager {
 	 */
 	private void readAvailablePacket() throws IOException {
 		// Read a packet from the Input Stream.
-		if(getConnection().isOpen()) {
-			Packet packet = getConnection().readPacket();
-			if (packet instanceof Response) {
-				addResponsePacket((Response) packet);
-			} else {
-				addCommandPacket(packet);
-			}
-		}
+		Packet packet = getConnection().readPacket();
+		if (packet instanceof Response)
+			addResponsePacket((Response) packet);
+		else
+			addCommandPacket(packet);
 	}
 }
