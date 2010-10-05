@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2010 IBM Corporation and others.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *     IBM Corporation - initial API and implementation
+ *******************************************************************************/
 package org.eclipse.wst.jsdt.debug.internal.ui.adapters;
 
 import java.util.List;
@@ -35,7 +45,7 @@ public class JavaScriptAsyncContentProvider extends ElementContentProvider {
 				System.arraycopy(threads, 0, children, 1, threads.length);
 				return getElements(children, index, length);
 			}
-			return threads;
+			return getElements(threads, index, length);
 		}
 		if(parent instanceof IScriptGroup) {
 			IScriptGroup group = (IScriptGroup) parent;
