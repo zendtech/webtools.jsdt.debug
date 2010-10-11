@@ -35,9 +35,11 @@ import org.eclipse.wst.jsdt.debug.core.jsdi.VirtualMachine;
 import org.eclipse.wst.jsdt.debug.core.jsdi.event.Event;
 import org.eclipse.wst.jsdt.debug.core.jsdi.event.EventSet;
 import org.eclipse.wst.jsdt.debug.core.jsdi.event.StepEvent;
+import org.eclipse.wst.jsdt.debug.core.jsdi.event.SuspendEvent;
 import org.eclipse.wst.jsdt.debug.core.jsdi.request.EventRequest;
 import org.eclipse.wst.jsdt.debug.core.jsdi.request.EventRequestManager;
 import org.eclipse.wst.jsdt.debug.core.jsdi.request.StepRequest;
+import org.eclipse.wst.jsdt.debug.core.jsdi.request.SuspendRequest;
 import org.eclipse.wst.jsdt.debug.core.model.IJavaScriptStackFrame;
 import org.eclipse.wst.jsdt.debug.core.model.IJavaScriptThread;
 import org.eclipse.wst.jsdt.debug.core.model.IJavaScriptValue;
@@ -56,7 +58,7 @@ import org.eclipse.wst.jsdt.debug.internal.core.breakpoints.JavaScriptLoadBreakp
  * 
  * @since 1.0
  */
-public class JavaScriptThread extends JavaScriptDebugElement implements IJavaScriptThread {
+public class JavaScriptThread extends JavaScriptDebugElement implements IJavaScriptThread, IJavaScriptEventListener {
 
 	/**
 	 * handler for stepping
@@ -102,8 +104,6 @@ public class JavaScriptThread extends JavaScriptDebugElement implements IJavaScr
 					deleteRequest(this, request);
 					request = null;
 				}
-				resumeUnderlyingThread();
-				fireResumeEvent(DebugEvent.CLIENT_REQUEST);
 			} finally {
 				pendingstep = null;
 			}
@@ -227,6 +227,8 @@ public class JavaScriptThread extends JavaScriptDebugElement implements IJavaScr
 	 * {@link StepHandler} handle to know if a step has been initiated
 	 */
 	private StepHandler pendingstep = null;
+	
+	private SuspendRequest suspendreq = null;
 
 	/**
 	 * Constructor
@@ -241,6 +243,9 @@ public class JavaScriptThread extends JavaScriptDebugElement implements IJavaScr
 		Assert.isNotNull(thread);
 		this.thread = thread;
 		this.state = thread.isSuspended() ? SUSPENDED : RUNNING;
+		suspendreq = target.getEventRequestManager().createSuspendRequest(this.thread);
+		suspendreq.setEnabled(true);
+		addJSDIEventListener(this, suspendreq);
 	}
 
 	/**
@@ -560,6 +565,9 @@ public class JavaScriptThread extends JavaScriptDebugElement implements IJavaScr
 		}
 		if ((suspend & IJavaScriptBreakpointParticipant.SUSPEND) > 0 || suspend == IJavaScriptBreakpointParticipant.DONT_CARE) {
 			addBreakpoint(breakpoint);
+			if(pendingstep != null) {
+				pendingstep.abort();
+			}
 			return true;
 		}
 		return false;
@@ -807,6 +815,8 @@ public class JavaScriptThread extends JavaScriptDebugElement implements IJavaScr
 	public synchronized void terminate() throws DebugException {
 		this.state = TERMINATED;
 		getJavaScriptDebugTarget().terminate();
+		getJavaScriptDebugTarget().getEventRequestManager().deleteEventRequest(suspendreq);
+		removeJSDIEventListener(this, suspendreq);
 	}
 
 	/**
@@ -888,5 +898,25 @@ public class JavaScriptThread extends JavaScriptDebugElement implements IJavaScr
 			return this.thread.frameCount();
 		}
 		return 0;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.eclipse.wst.jsdt.debug.internal.core.model.IJavaScriptEventListener#handleEvent(org.eclipse.wst.jsdt.debug.core.jsdi.event.Event, org.eclipse.wst.jsdt.debug.internal.core.model.JavaScriptDebugTarget, boolean, org.eclipse.wst.jsdt.debug.core.jsdi.event.EventSet)
+	 */
+	public boolean handleEvent(Event event, JavaScriptDebugTarget target, boolean suspendVote, EventSet eventSet) {
+		if(event instanceof SuspendEvent) {
+			if(canSuspend()) {
+				markSuspended();
+				fireSuspendEvent(DebugEvent.SUSPEND);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.eclipse.wst.jsdt.debug.internal.core.model.IJavaScriptEventListener#eventSetComplete(org.eclipse.wst.jsdt.debug.core.jsdi.event.Event, org.eclipse.wst.jsdt.debug.internal.core.model.JavaScriptDebugTarget, boolean, org.eclipse.wst.jsdt.debug.core.jsdi.event.EventSet)
+	 */
+	public void eventSetComplete(Event event, JavaScriptDebugTarget target, boolean suspend, EventSet eventSet) {
 	}
 }
