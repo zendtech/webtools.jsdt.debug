@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,11 +13,13 @@ package org.eclipse.wst.jsdt.debug.internal.crossfire.jsdi;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import org.eclipse.core.runtime.Path;
+import org.eclipse.core.runtime.URIUtil;
 import org.eclipse.wst.jsdt.debug.core.jsdi.Location;
 import org.eclipse.wst.jsdt.debug.core.jsdi.ScriptReference;
 import org.eclipse.wst.jsdt.debug.core.jsdi.VirtualMachine;
@@ -26,8 +28,8 @@ import org.eclipse.wst.jsdt.debug.internal.crossfire.Tracing;
 import org.eclipse.wst.jsdt.debug.internal.crossfire.transport.Attributes;
 import org.eclipse.wst.jsdt.debug.internal.crossfire.transport.Commands;
 import org.eclipse.wst.jsdt.debug.internal.crossfire.transport.JSON;
-import org.eclipse.wst.jsdt.debug.internal.crossfire.transport.Request;
-import org.eclipse.wst.jsdt.debug.internal.crossfire.transport.Response;
+import org.eclipse.wst.jsdt.debug.internal.crossfire.transport.CFRequestPacket;
+import org.eclipse.wst.jsdt.debug.internal.crossfire.transport.CFResponsePacket;
 
 /**
  * Default implementation of {@link ScriptReference} for Crossfire
@@ -37,8 +39,7 @@ import org.eclipse.wst.jsdt.debug.internal.crossfire.transport.Response;
 public class CFScriptReference extends CFMirror implements ScriptReference {
 	
 	private String context_id = null;
-	private String context_href = null;
-	private String id = null;
+	private String url = null;
 	private int srclength = 0;
 	private int linecount = 0;
 	private int coloffset = 0;
@@ -57,17 +58,7 @@ public class CFScriptReference extends CFMirror implements ScriptReference {
 	public CFScriptReference(VirtualMachine vm, String context_id, Map json) {
 		super(vm);
 		this.context_id = context_id;
-		//try "href" first -> CF 0.2 support
-		this.id = (String) json.get(Attributes.HREF);
-		if(id == null) {
-			//try "data" next -> CF 0.1a3 support
-			this.id = (String) json.get(Attributes.DATA);
-		}
-		if(this.id == null) {
-			//try "id" last -> CF 0.1 support
-			this.id = (String) json.get(Attributes.ID);
-		}
-		this.context_href = (String) json.get(Attributes.CONTEXT_HREF);
+		this.url = (String) json.get(Attributes.URL);
 		initializeScript(json);
 	}
 
@@ -94,6 +85,19 @@ public class CFScriptReference extends CFMirror implements ScriptReference {
 			this.coloffset = value.intValue();
 		}
 		source = (String) json.get(Attributes.SOURCE);
+		prepareLocations(linecount);
+	}
+	
+	/**
+	 * Creates the line locations
+	 * 
+	 * @param lines
+	 */
+	void prepareLocations(int lines) {
+		linelocs.clear();  //remove old line infos
+		for (int i = 1; i <= lines; i++) {
+			linelocs.add(new CFLocation(virtualMachine(), this, null, i));
+		}
 	}
 	
 	/* (non-Javadoc)
@@ -107,6 +111,9 @@ public class CFScriptReference extends CFMirror implements ScriptReference {
 	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.ScriptReference#lineLocation(int)
 	 */
 	public Location lineLocation(int lineNumber) {
+		if(lineNumber <= linelocs.size()) {
+			return (Location) linelocs.get(lineNumber-1);
+		}
 		return null;
 	}
 
@@ -125,22 +132,11 @@ public class CFScriptReference extends CFMirror implements ScriptReference {
 	}
 
 	/**
-	 * The id of the script
-	 * @return the id
+	 * The url of the script
+	 * @return the url
 	 */
-	public String id() {
-		return id;
-	}
-	
-	/**
-	 * The HTTP context of the script, if any.
-	 * <br><br>
-	 * This method can return <code>null</code>
-	 * 
-	 * @return the HTTP context of the script or null
-	 */
-	public String hrefContext() {
-		return context_href;
+	public String url() {
+		return url;
 	}
 	
 	/**
@@ -159,12 +155,15 @@ public class CFScriptReference extends CFMirror implements ScriptReference {
 	 */
 	public synchronized String source() {
 		if(source == null) {
-			Request request = new Request(Commands.SCRIPT, context_id);
+			CFRequestPacket request = new CFRequestPacket(Commands.SCRIPTS, context_id);
 			request.setArgument(Attributes.INCLUDE_SOURCE, Boolean.TRUE);
-			request.setArgument(Attributes.URL, id);
-			Response response = crossfire().sendRequest(request);
+			request.setArgument(Attributes.URLS, Arrays.asList(new String[] {url}));
+			CFResponsePacket response = crossfire().sendRequest(request);
 			if(response.isSuccess()) {
-				initializeScript((Map) response.getBody().get(Attributes.SCRIPT));
+				List list = (List)response.getBody().get(Attributes.SCRIPTS);
+				if (list != null && list.size() > 0) {
+					initializeScript((Map)list.get(0));
+				}
 			}
 			else if(TRACE) {
 				Tracing.writeString("SCRIPTREF [failed source request]: "+JSON.serialize(request)); //$NON-NLS-1$
@@ -179,14 +178,17 @@ public class CFScriptReference extends CFMirror implements ScriptReference {
 	public synchronized URI sourceURI() {
 		if(sourceuri == null) {
 			try {
-				sourceuri = URI.create(id);
+				sourceuri = URIUtil.fromString(url);
 			}
 			catch(IllegalArgumentException iae) {
 				try {
-					sourceuri = CrossFirePlugin.fileURI(new Path(id));
+					sourceuri = CrossFirePlugin.fileURI(new Path(url));
 				} catch (URISyntaxException e) {
 					CrossFirePlugin.log(e);
 				}
+			}
+			catch(URISyntaxException urise) {
+				CrossFirePlugin.log(urise);
 			}
 		}
 		return sourceuri;
@@ -198,8 +200,7 @@ public class CFScriptReference extends CFMirror implements ScriptReference {
 	public String toString() {
 		StringBuffer buffer = new StringBuffer();
 		buffer.append("ScriptReference: [context_id - ").append(context_id).append("]"); //$NON-NLS-1$ //$NON-NLS-2$
-		buffer.append(" [context_href - ").append(context_href).append("]"); //$NON-NLS-1$ //$NON-NLS-2$
-		buffer.append(" [id - ").append(id).append("]"); //$NON-NLS-1$ //$NON-NLS-2$
+		buffer.append(" [url - ").append(url).append("]"); //$NON-NLS-1$ //$NON-NLS-2$
 		buffer.append(" [srclength - ").append(srclength).append("]"); //$NON-NLS-1$ //$NON-NLS-2$
 		buffer.append(" [linecount - ").append(linecount).append("]"); //$NON-NLS-1$ //$NON-NLS-2$
 		buffer.append(" [lineoffset - ").append(lineoffset).append("]"); //$NON-NLS-1$ //$NON-NLS-2$

@@ -17,28 +17,25 @@ import java.util.Map;
  *  
  *  @since 1.0
  */
-public abstract class Packet {
+public abstract class CFPacket implements org.eclipse.wst.jsdt.debug.transport.packet.Packet {
 
 	/**
 	 * Debugging flag
 	 */
 	public static boolean TRACE = false;
 	
-	private static int currentSequence = 0;
-	private final int sequence;
 	private final String type;
 	private final String context_id;
 	
 	/**
 	 * Constructor
 	 * 
-	 * @param type the type for the {@link Packet} <code>null</code> is not accepted
+	 * @param type the type for the {@link CFPacket} <code>null</code> is not accepted
 	 */
-	protected Packet(String type, String context_id) {
+	protected CFPacket(String type, String context_id) {
 		if(type == null) {
 			throw new IllegalArgumentException("The type for a packet cannot be null"); //$NON-NLS-1$
 		}
-		this.sequence = nextSequence();
 		this.type = type.intern();
 		this.context_id = context_id;
 	}
@@ -48,29 +45,13 @@ public abstract class Packet {
 	 * 
 	 * @param json the pre-composed map of attributes for the packet, <code>null</code> is not accepted
 	 */
-	protected Packet(Map json) {
+	protected CFPacket(Map json) {
 		if(json == null) {
 			throw new IllegalArgumentException("The JSON map for a packet cannot be null"); //$NON-NLS-1$
 		}
-		Number packetSeq = (Number) json.get(Attributes.SEQ);
-		this.sequence = packetSeq.intValue();
 		String packetType = (String) json.get(Attributes.TYPE);
 		this.type = packetType.intern();
 		this.context_id = (String) json.get(Attributes.CONTEXT_ID);
-	}
-
-	/**
-	 * @return a next value for the sequence
-	 */
-	private static synchronized int nextSequence() {
-		return ++currentSequence;
-	}
-
-	/**
-	 * @return the current sequence
-	 */
-	public int getSequence() {
-		return sequence;
 	}
 
 	/**
@@ -80,26 +61,18 @@ public abstract class Packet {
 		return context_id;
 	}
 	
-	/**
-	 * Returns the type of this packet.<br>
-	 * <br>
-	 * This method cannot return <code>null</code>
-	 * 
-	 * @return the type, never <code>null</code>
+	/* (non-Javadoc)
+	 * @see org.eclipse.wst.jsdt.debug.transport.packet.Packet#getType()
 	 */
 	public String getType() {
 		return type;
 	}
 
-	/**
-	 * Returns the type and sequence composed in a JSON map.<br>
-	 * <br>
-	 * This method cannot return <code>null</code>
-	 * @return the JSON map
+	/* (non-Javadoc)
+	 * @see org.eclipse.wst.jsdt.debug.transport.packet.Packet#toJSON()
 	 */
 	public Map toJSON() {
 		Map json = new HashMap();
-		json.put(Attributes.SEQ, new Integer(sequence));
 		json.put(Attributes.TYPE, type);
 		if(context_id != null) {
 			json.put(Attributes.CONTEXT_ID, context_id);
@@ -129,7 +102,7 @@ public abstract class Packet {
 	public String toString() {
 		StringBuffer buffer = new StringBuffer();
 		Object json = toJSON();
-		buffer.append("Packet: "); //$NON-NLS-1$
+		buffer.append("CFPacket: "); //$NON-NLS-1$
 		JSON.writeValue(json, buffer);
 		return buffer.toString();
 	}

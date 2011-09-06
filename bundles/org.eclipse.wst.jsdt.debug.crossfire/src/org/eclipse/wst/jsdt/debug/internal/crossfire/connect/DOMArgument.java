@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,52 +10,32 @@
  *******************************************************************************/
 package org.eclipse.wst.jsdt.debug.internal.crossfire.connect;
 
-import org.eclipse.wst.jsdt.debug.core.jsdi.connect.Connector.StringArgument;
-import org.eclipse.wst.jsdt.debug.transport.Constants;
+import org.eclipse.wst.jsdt.debug.core.jsdi.connect.Connector.Argument;
+import org.eclipse.wst.jsdt.debug.core.jsdi.connect.Connector.BooleanArgument;
 
 /**
- * Implementation of a string argument that describes the host argument
+ * An {@link Argument} to enable DOM tooling support in the crossfire server
  * 
  * @since 1.0
  */
-public class HostArgument implements StringArgument {
+public class DOMArgument implements BooleanArgument {
 
-	private static final long serialVersionUID = 3057403815318177030L;
-	private String host;
-
-	/**
-	 * Host attribute name
-	 */
-	public static final String HOST = "host"; //$NON-NLS-1$
-
-	/**
-	 * Constructor
-	 * 
-	 * @param host
-	 */
-	public HostArgument(String host) {
-		setValue(host);
-	}
-
+	public static final String DOM = "dom"; //$NON-NLS-1$
+	
+	private boolean fValue = true;
+	
 	/* (non-Javadoc)
 	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.connect.Connector.Argument#description()
 	 */
 	public String description() {
-		return Messages.host_arg_desc;
-	}
-
-	/* (non-Javadoc)
-	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.connect.Connector.StringArgument#isValid(java.lang.String)
-	 */
-	public boolean isValid(String value) {
-		return value != null;
+		return Messages.dom_arg_description;
 	}
 
 	/* (non-Javadoc)
 	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.connect.Connector.Argument#label()
 	 */
 	public String label() {
-		return Messages.host_arg_name;
+		return Messages.dom_arg_label;
 	}
 
 	/* (non-Javadoc)
@@ -64,42 +44,46 @@ public class HostArgument implements StringArgument {
 	public boolean mustSpecify() {
 		return true;
 	}
-	
+
 	/* (non-Javadoc)
 	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.connect.Connector.Argument#name()
 	 */
 	public String name() {
-		return HOST;
+		return DOM;
 	}
 
 	/* (non-Javadoc)
 	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.connect.Connector.Argument#setValue(java.lang.String)
 	 */
-	public void setValue(String host) {
-		if(host == null) {
-			this.host = Constants.LOCALHOST;
-		}
-		else {
-			if (!isValid(host)) {
-				throw new IllegalArgumentException();
-			}
-			this.host = host;
-		}
+	public void setValue(String value) {
+		fValue = Boolean.valueOf(value).booleanValue();
 	}
 
 	/* (non-Javadoc)
 	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.connect.Connector.Argument#value()
 	 */
 	public String value() {
-		return host;
+		return Boolean.toString(fValue);
 	}
 
-	/**
-	 * Returns if the given host is <code>localhost</code> or <code>127.0.0.1</code>
-	 * @param host
-	 * @return true if the given host it localhost (127.0.0.1) false otherwise
+	/* (non-Javadoc)
+	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.connect.Connector.BooleanArgument#booleanValue()
 	 */
-	public static boolean isLocalhost(String host) {
-		return host.equals(Constants.LOCALHOST) || host.equals(Constants.LOCALHOST_IP);
+	public boolean booleanValue() {
+		return fValue;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.connect.Connector.BooleanArgument#isValid(java.lang.String)
+	 */
+	public boolean isValid(String value) {
+		return value != null;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.connect.Connector.BooleanArgument#setValue(boolean)
+	 */
+	public void setValue(boolean booleanValue) {
+		fValue = booleanValue;
 	}
 }

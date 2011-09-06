@@ -12,39 +12,22 @@ package org.eclipse.wst.jsdt.debug.internal.crossfire.request;
 
 import org.eclipse.wst.jsdt.debug.core.jsdi.ThreadReference;
 import org.eclipse.wst.jsdt.debug.core.jsdi.VirtualMachine;
-import org.eclipse.wst.jsdt.debug.core.jsdi.request.StepRequest;
-import org.eclipse.wst.jsdt.debug.internal.crossfire.jsdi.CFThreadReference;
+import org.eclipse.wst.jsdt.debug.core.jsdi.request.ResumeRequest;
 
 /**
- * Default implementation of {@link StepRequest} for Crossfire
+ * Crossfire implementation of {@link ResumeRequest}
  * 
  * @since 1.0
  */
-public class CFStepRequest extends CFThreadEventRequest implements StepRequest {
+public class CFResumeRequest extends CFThreadEventRequest implements ResumeRequest {
 
-	private int stepkind = 0;
-	
 	/**
 	 * Constructor
 	 * @param vm
+	 * @param thread
 	 */
-	public CFStepRequest(VirtualMachine vm, ThreadReference thread, int step) {
+	public CFResumeRequest(VirtualMachine vm, ThreadReference thread) {
 		super(vm);
 		setThread(thread);
-		this.stepkind = step;
-	}
-
-	/* (non-Javadoc)
-	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.request.StepRequest#step()
-	 */
-	public int step() {
-		return stepkind;
-	}
-	/* (non-Javadoc)
-	 * @see org.eclipse.wst.jsdt.debug.internal.crossfire.request.CFEventRequest#setEnabled(boolean)
-	 */
-	public void setEnabled(boolean enabled) {
-		super.setEnabled(enabled);
-		((CFThreadReference)thread()).setStep((enabled ? stepkind : -1));
 	}
 }

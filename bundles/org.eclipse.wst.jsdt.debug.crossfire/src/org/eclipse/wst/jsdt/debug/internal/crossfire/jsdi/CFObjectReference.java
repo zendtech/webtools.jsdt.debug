@@ -10,10 +10,14 @@
  *******************************************************************************/
 package org.eclipse.wst.jsdt.debug.internal.crossfire.jsdi;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.eclipse.wst.jsdt.debug.core.jsdi.ObjectReference;
+import org.eclipse.wst.jsdt.debug.core.jsdi.StackFrame;
 import org.eclipse.wst.jsdt.debug.core.jsdi.Value;
 import org.eclipse.wst.jsdt.debug.internal.crossfire.transport.Attributes;
 
@@ -32,9 +36,12 @@ public class CFObjectReference extends CFMirror implements ObjectReference {
 	private CFStackFrame frame = null;
 	private String classname = null;
 	private Number handle = null;
+	private Number constref = null;
+	private Number protoref = null;
 	private Value constructor = null;
 	private Value prototype = null;
 	private List properties = null;
+	private String source = null;
 	
 	/**
 	 * Constructor
@@ -46,13 +53,56 @@ public class CFObjectReference extends CFMirror implements ObjectReference {
 		super(vm);
 		this.frame = frame;
 		handle = (Number) body.get(Attributes.HANDLE);
+		source = (String) body.get(Attributes.SOURCE);
+		//init properties - we are dealing with evaluation results
+		Map props = (Map) body.get(Attributes.RESULT);
+		if(props == null) {
+			Object o = body.get(Attributes.VALUE);
+			if(o instanceof Map) {
+				props = (Map) body.get(Attributes.VALUE);
+			}
+			else if(this.handle == null) {
+				props = body;
+			}
+		}
+		if(props != null) {
+			if(properties == null) {
+				properties = new ArrayList(props.size());
+			}
+			Entry entry = null;
+			String name = null;
+			Map json = null;
+			Number ref = null;
+			for(Iterator i = props.entrySet().iterator(); i.hasNext();) {
+				entry = (Entry) i.next();
+				name = (String)entry.getKey();
+				if(entry.getValue() instanceof Map) {
+					json = (Map) entry.getValue();
+					ref = (Number) json.get(Attributes.HANDLE);
+					//don't add constructor and proto to the properties heap
+					//they are requested specially
+					if(Attributes.CONSTRUCTOR.equals(name)) {
+						constref = ref;
+						continue;
+					}
+					else if(Attributes.PROTO.equals(name)) {
+						protoref = ref;
+						continue;
+					}
+				}
+				properties.add(new CFVariable(crossfire(), frame, name, ref, json));
+			}
+		}
 	}
-
+	
 	/* (non-Javadoc)
 	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.Value#valueString()
 	 */
 	public String valueString() {
-		return null;
+		if(source != null) {
+			return source;
+		}
+		return OBJECT;
 	}
 
 	/* (non-Javadoc)
@@ -68,7 +118,10 @@ public class CFObjectReference extends CFMirror implements ObjectReference {
 	public Value constructor() {
 		synchronized (frame) {
 			if(constructor == null) {
-				//TODO
+				if(constref == null) {
+					constructor = crossfire().mirrorOfUndefined();
+				}
+				constructor = frame.lookup(constref);
 			}
 		}
 		return constructor;
@@ -80,7 +133,10 @@ public class CFObjectReference extends CFMirror implements ObjectReference {
 	public Value prototype() {
 		synchronized (frame) {
 			if(prototype == null) {
-				//TODO
+				if(protoref == null) {
+					prototype = crossfire().mirrorOfUndefined();
+				}
+				prototype = frame.lookup(protoref);
 			}
 		}
 		return prototype;
@@ -90,18 +146,27 @@ public class CFObjectReference extends CFMirror implements ObjectReference {
 	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.ObjectReference#properties()
 	 */
 	public List properties() {
-		synchronized (frame) {
-			if(properties == null) {
-				//TODO
-			}
-		}
 		return properties;
 	}
 
 	/* (non-Javadoc)
-	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.ObjectReference#id()
+	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.ObjectReference#handle()
 	 */
 	public Number id() {
 		return handle;
+	}
+	
+	/**
+	 * @return the backing {@link StackFrame}
+	 */
+	protected CFStackFrame frame() {
+		return this.frame;
+	}
+	
+	/**
+	 * @return the source for the body of the object, or <code>null</code>
+	 */
+	protected String source() {
+		return this.source;
 	}
 }

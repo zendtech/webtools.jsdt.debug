@@ -10,42 +10,27 @@
  *******************************************************************************/
 package org.eclipse.wst.jsdt.debug.internal.crossfire.event;
 
+import org.eclipse.wst.jsdt.debug.core.jsdi.Location;
+import org.eclipse.wst.jsdt.debug.core.jsdi.ThreadReference;
 import org.eclipse.wst.jsdt.debug.core.jsdi.VirtualMachine;
-import org.eclipse.wst.jsdt.debug.core.jsdi.event.Event;
+import org.eclipse.wst.jsdt.debug.core.jsdi.event.ResumeEvent;
 import org.eclipse.wst.jsdt.debug.core.jsdi.request.EventRequest;
 
 /**
- * Default implementation of an {@link CFEvent} for Crossfire
+ * Crossfire implementation of {@link ResumeEvent}
  * 
  * @since 1.0
  */
-public class CFEvent implements Event {
+public class CFResumeEvent extends CFLocatableEvent implements ResumeEvent {
 
-	private VirtualMachine vm = null;
-	private EventRequest request = null;
-	
 	/**
 	 * Constructor
-	 * 
 	 * @param vm
 	 * @param request
+	 * @param thread
+	 * @param location
 	 */
-	public CFEvent(VirtualMachine vm, EventRequest request) {
-		this.vm = vm;
-		this.request = request;
-	}
-	
-	/* (non-Javadoc)
-	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.Mirror#virtualMachine()
-	 */
-	public VirtualMachine virtualMachine() {
-		return vm;
-	}
-
-	/* (non-Javadoc)
-	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.event.Event#request()
-	 */
-	public EventRequest request() {
-		return request;
+	public CFResumeEvent(VirtualMachine vm, EventRequest request, ThreadReference thread, Location location) {
+		super(vm, request, thread, location);
 	}
 }

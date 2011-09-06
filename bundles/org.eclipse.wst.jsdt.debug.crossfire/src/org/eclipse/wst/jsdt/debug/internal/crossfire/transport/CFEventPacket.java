@@ -10,16 +10,19 @@ package org.eclipse.wst.jsdt.debug.internal.crossfire.transport;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+
+import org.eclipse.wst.jsdt.debug.transport.packet.Event;
 
 
 /**
- * An {@link Event} is a specialized {@link Packet}
+ * An {@link CFEventPacket} is a specialized {@link CFPacket}
  * that only handles <code>event</code> data.
  * 
  * @since 1.0
  */
-public class Event extends Packet {
+public class CFEventPacket extends CFPacket implements Event {
 
 	/**
 	 * The type of this packet
@@ -70,13 +73,21 @@ public class Event extends Packet {
 	 */
 	public static final String ON_TOGGLE_BREAKPOINT = "onToggleBreakpoint"; //$NON-NLS-1$
 	/**
-	 * The "onContextCreated" event kind
+	 * The "onContextSelected" event kind
 	 */
-	public static final String ON_CONTEXT_CREATED = "onContextCreated"; //$NON-NLS-1$
+	public static final String ON_CONTEXT_SELECTED = "onContextSelected"; //$NON-NLS-1$
 	/**
 	 * The "onContextDestroyed" event kind
 	 */
 	public static final String ON_CONTEXT_DESTROYED = "onContextDestroyed"; //$NON-NLS-1$
+	/**
+	 * The "onContextCreated" event kind
+	 */
+	public static final String ON_CONTEXT_CREATED = "onContextCreated"; //$NON-NLS-1$
+	/**
+	 * The "onContextLoaded" event kind
+	 */
+	public static final String ON_CONTEXT_LOADED = "onContextLoaded"; //$NON-NLS-1$
 	
 	private final String event;
 	private final Map body = Collections.synchronizedMap(new HashMap());
@@ -85,7 +96,7 @@ public class Event extends Packet {
 	 * Constructor
 	 * @param event
 	 */
-	public Event(String event) {
+	public CFEventPacket(String event) {
 		super(EVENT, null);
 		this.event = event.intern();
 	}
@@ -94,7 +105,7 @@ public class Event extends Packet {
 	 * Constructor
 	 * @param json
 	 */
-	public Event(Map json) {
+	public CFEventPacket(Map json) {
 		super(json);
 		String packetEvent = (String) json.get(EVENT);
 		event = packetEvent.intern();
@@ -102,34 +113,47 @@ public class Event extends Packet {
 		if(data instanceof Map) {
 			body.putAll((Map) data);
 		}
-		if(data instanceof String) {
+		else if(data instanceof String ||
+				data instanceof List) {
 			body.put(Attributes.DATA, data);
 		}
+		
 	}
 
-	/**
-	 * Returns the underlying event data
-	 * @return the event data
+	/* (non-Javadoc)
+	 * @see org.eclipse.wst.jsdt.debug.internal.crossfire.transport.CFPacket#getContextId()
+	 */
+	public String getContextId() {
+		String id = super.getContextId();
+		if(id == null) {
+			id = (String) body.get(Attributes.CONTEXT_ID);
+		}
+		return id;
+	}
+	
+	/* (non-Javadoc)
+	 * @see org.eclipse.wst.jsdt.debug.transport.packet.Event#getEvent()
 	 */
 	public String getEvent() {
 		return event;
 	}
 
-	/**
-	 * Returns the underlying body of the event packet
-	 * @return the body of the packet
+	/* (non-Javadoc)
+	 * @see org.eclipse.wst.jsdt.debug.transport.packet.Event#getBody()
 	 */
 	public Map getBody() {
 		return body;
 	}
 
 	/* (non-Javadoc)
-	 * @see org.eclipse.wst.jsdt.debug.internal.core.jsdi.connect.Packet#toJSON()
+	 * @see org.eclipse.wst.jsdt.debug.internal.crossfire.transport.CFPacket#toJSON()
 	 */
 	public Map toJSON() {
 		Map json = super.toJSON();
 		json.put(EVENT, event);
-		json.put(Attributes.BODY, body);
+		if(body.size() > 0) {
+			json.put(Attributes.BODY, body);
+		}
 		return json;
 	}
 	
@@ -139,7 +163,7 @@ public class Event extends Packet {
 	public String toString() {
 		StringBuffer buffer = new StringBuffer();
 		Object json = toJSON();
-		buffer.append("Event: "); //$NON-NLS-1$
+		buffer.append("CFEventPacket: "); //$NON-NLS-1$
 		JSON.writeValue(json, buffer);
 		return buffer.toString();
 	}

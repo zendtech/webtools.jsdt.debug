@@ -10,6 +10,7 @@
  *******************************************************************************/
 package org.eclipse.wst.jsdt.debug.internal.crossfire.jsdi;
 
+import org.eclipse.wst.jsdt.debug.core.jsdi.NullValue;
 import org.eclipse.wst.jsdt.debug.core.jsdi.Property;
 import org.eclipse.wst.jsdt.debug.core.jsdi.Value;
 
@@ -46,14 +47,20 @@ public class CFProperty extends CFMirror implements Property {
 	public String name() {
 		return this.name;
 	}
-
+	
 	/**
-	 * Returns the handle reference for this property
+	 * Allows the value to be set. Passing in <code>null</code> for <code>newvalue</code> will result
+	 * in {@link #value} being set to {@link NullValue}
 	 * 
-	 * @return the handle reference
+	 * @param newvalue
 	 */
-	public Number ref() {
-		return this.ref;
+	protected void setValue(Value newvalue) {
+		if(newvalue == null) {
+			this.value = crossfire().mirrorOfNull();
+		}
+		else {
+			this.value = newvalue;
+		}
 	}
 	
 	/* (non-Javadoc)
@@ -66,7 +73,9 @@ public class CFProperty extends CFMirror implements Property {
 				this.value = crossfire().mirrorOfUndefined();
 			}
 		}
+		if(this.value == null) {
+			return crossfire().mirrorOfUndefined();
+		}
 		return this.value;
 	}
-
 }

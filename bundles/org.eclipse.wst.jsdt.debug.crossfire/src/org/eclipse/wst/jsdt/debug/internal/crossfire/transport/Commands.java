@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -24,15 +24,23 @@ public interface Commands {
 	/**
 	 * The "changebreakpoint" command
 	 */
-	public static final String CHANGE_BREAKPOINT = "changebreakpoint"; //$NON-NLS-1$
+	public static final String CHANGE_BREAKPOINTS = "changebreakpoints"; //$NON-NLS-1$
 	/**
-	 * The "clearbreakpoint" command
+	 * The "deletebreakpoint" command
 	 */
-	public static final String CLEAR_BREAKPOINT = "clearbreakpoint"; //$NON-NLS-1$
+	public static final String DELETE_BREAKPOINTS = "deletebreakpoints"; //$NON-NLS-1$
 	/**
 	 * The "continue" command
 	 */
 	public static final String CONTINUE = "continue"; //$NON-NLS-1$
+	/**
+	 * The "disabletools" command
+	 */
+	public static final String DISABLE_TOOLS = "disabletools"; //$NON-NLS-1$
+	/**
+	 * The "enabletools" command
+	 */
+	public static final String ENABLE_TOOLS = "enabletools"; //$NON-NLS-1$
 	/**
 	 * The "evaluate" command
 	 */
@@ -42,13 +50,13 @@ public interface Commands {
 	 */
 	public static final String FRAME = "frame"; //$NON-NLS-1$
 	/**
-	 * The "getbreakpoint" command
-	 */
-	public static final String GET_BREAKPOINT = "getbreakpoint"; //$NON-NLS-1$
-	/**
 	 * The "getbreakpoints" command
 	 */
 	public static final String GET_BREAKPOINTS = "getbreakpoints"; //$NON-NLS-1$
+	/**
+	 * The "gettools" command
+	 */
+	public static final String GET_TOOLS = "gettools"; //$NON-NLS-1$
 	/**
 	 * The "inspect" command
 	 */
@@ -66,17 +74,25 @@ public interface Commands {
 	 */
 	public static final String SCOPES = "scopes"; //$NON-NLS-1$
 	/**
-	 * The "script" command
-	 */
-	public static final String SCRIPT = "script"; //$NON-NLS-1$
-	/**
 	 * The "scripts" command
 	 */
 	public static final String SCRIPTS = "scripts"; //$NON-NLS-1$
 	/**
 	 * The "setbreakpoint" command
 	 */
-	public static final String SET_BREAKPOINT = "setbreakpoint"; //$NON-NLS-1$
+	public static final String SET_BREAKPOINTS = "setbreakpoints"; //$NON-NLS-1$
+	/**
+	 * The "in" step action
+	 */
+	public static final String STEP_IN = "in"; //$NON-NLS-1$
+	/**
+	 * The "next" step action 
+	 */
+	public static final String STEP_NEXT = "next"; //$NON-NLS-1$
+	/**
+	 * The "out" step action
+	 */
+	public static final String STEP_OUT = "out"; //$NON-NLS-1$
 	/**
 	 * The "source" command
 	 */
@@ -85,6 +101,10 @@ public interface Commands {
 	 * The "suspend" command
 	 */
 	public static final String SUSPEND = "suspend"; //$NON-NLS-1$
+	/** 
+	 * The "createcontext" command
+	 */
+	public static final String CREATE_CONTEXT = "createcontext"; //$NON-NLS-1$
 	/**
 	 * The "version" command
 	 */

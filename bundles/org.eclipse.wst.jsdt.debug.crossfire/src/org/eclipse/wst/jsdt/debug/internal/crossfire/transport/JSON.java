@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -49,10 +49,9 @@ public final class JSON {
 	 */
 	public static final String LINE_FEED = "\r\n"; //$NON-NLS-1$
 	/**
-	 * The default <code>Content-Length:</code> pre-amble
+	 * The default <code>Content-Length:</code> preamble
 	 */
 	public static final String CONTENT_LENGTH = "Content-Length:"; //$NON-NLS-1$
-	
 	/**
 	 * Enables / Disables tracing in the all of the JSDI implementations
 	 * 
@@ -208,31 +207,31 @@ public final class JSON {
 	}
 	
 	/**
-	 * Writes the <code>Content-Length:N</code> pre-amble to the head of the given buffer
+	 * Writes the <code>Content-Length:N</code> preamble to the head of the given buffer
 	 * 
 	 * @param buffer
 	 * @param length
 	 */
 	public static void writeContentLength(StringBuffer buffer, int length) {
 		StringBuffer buff = new StringBuffer(18);
-		buff.append(CONTENT_LENGTH).append(length).append(LINE_FEED);
-		buffer.insert(0, buff);
+		buff.append(CONTENT_LENGTH).append(length).append(LINE_FEED).append(LINE_FEED);
+		buffer.insert(0, buff.toString());
 	}
 	
 	/**
-	 * Serializes the given {@link Packet} to a {@link String}
+	 * Serializes the given {@link CFPacket} to a {@link String}
 	 * 
 	 * @param packet the packet to serialize
 	 * 
 	 * @return the serialized {@link String}, never <code>null</code>
 	 */
-	public static String serialize(Packet packet) {
+	public static String serialize(CFPacket packet) {
 		Object json = packet.toJSON();
 		StringBuffer buffer = new StringBuffer();
 		writeValue(json, buffer);
 		int length = buffer.length();
-		buffer.append(LINE_FEED);
 		writeContentLength(buffer, length);
+		buffer.append(LINE_FEED);
 		if(TRACE) {
 			Tracing.writeString("SERIALIZE: " + packet.getType() +" packet as "+buffer.toString()); //$NON-NLS-1$ //$NON-NLS-2$
 		}
@@ -240,7 +239,7 @@ public final class JSON {
 	}
 	
 	/**
-	 * Reads and returns a new object from the given json {@link String}. This method
+	 * Reads and returns a new object from the given JSON {@link String}. This method
 	 * will throw an {@link IllegalStateException} if parsing fails.
 	 * 
 	 * @param jsonString
@@ -252,7 +251,7 @@ public final class JSON {
 	
 	/**
 	 * Reads and returns a new object form the given {@link CharacterIterator} that corresponds to
-	 * a properly formatted json string. This method will throw an {@link IllegalStateException} if
+	 * a properly formatted JSON string. This method will throw an {@link IllegalStateException} if
 	 * parsing fails.
 	 * 
 	 * @param it the {@link CharacterIterator} to parse
@@ -362,9 +361,12 @@ public final class JSON {
 			return ""; //$NON-NLS-1$
 		}
 		StringBuffer buffer = new StringBuffer();
-		while (c != '"') {
+		while (c != CharacterIterator.DONE && c != '"') {
 			if (Character.isISOControl(c)) {
-				throw error("illegal iso control character: '" + Integer.toHexString(c) + "'", it); //$NON-NLS-1$ //$NON-NLS-2$);
+				//ignore it and continue
+				c = it.next();
+				continue;
+				//throw error("illegal ISO control character: '" + Integer.toHexString(c) + "'", it); //$NON-NLS-1$ //$NON-NLS-2$);
 			}
 			if (c == '\\') {
 				c = it.next();
@@ -436,7 +438,7 @@ public final class JSON {
 		}
 
 		Map map = new HashMap();
-		while (true) {
+		while (it.current() != CharacterIterator.DONE) {
 			if (it.current() != '"') {
 				throw error("expected a string start '\"' but was '" + it.current() + "'", it); //$NON-NLS-1$ //$NON-NLS-2$
 			}
@@ -483,7 +485,7 @@ public final class JSON {
 		}
 
 		List list = new ArrayList();
-		while (true) {
+		while (it.current() != CharacterIterator.DONE) {
 			Object value = parseValue(it);
 			list.add(value);
 			parseWhitespace(it);
