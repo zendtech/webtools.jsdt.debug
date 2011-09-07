@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -21,7 +21,6 @@ import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IRegisterGroup;
 import org.eclipse.debug.core.model.IThread;
 import org.eclipse.debug.core.model.IVariable;
-import org.eclipse.osgi.util.NLS;
 import org.eclipse.wst.jsdt.debug.core.jsdi.Location;
 import org.eclipse.wst.jsdt.debug.core.jsdi.ScriptReference;
 import org.eclipse.wst.jsdt.debug.core.jsdi.StackFrame;
@@ -46,8 +45,9 @@ public final class JavaScriptStackFrame extends JavaScriptDebugElement implement
 	 */
 	private StackFrame stackFrame = null;
 
-	private String name = null;
 	private ArrayList variables;
+	
+	private IVariable thisvar = null;
 
 	/**
 	 * Constructs a Rhino stack frame in the given thread.
@@ -102,13 +102,7 @@ public final class JavaScriptStackFrame extends JavaScriptDebugElement implement
 	 * @see org.eclipse.debug.core.model.IStackFrame#getName()
 	 */
 	public String getName() throws DebugException {
-		if (this.name == null) {
-			this.name = NLS.bind(ModelMessages.JSDIStackFrame_stackframe_name, new String[] {
-									this.stackFrame.location().scriptReference().sourceURI().toString(), 
-									Integer.toString(stackFrame.location().lineNumber()) 
-									});
-		}
-		return this.name;
+		return this.stackFrame.location().scriptReference().sourceURI().toString();
 	}
 
 	/*
@@ -138,9 +132,6 @@ public final class JavaScriptStackFrame extends JavaScriptDebugElement implement
 		if (this.variables == null) {
 			List underlyingVariables = this.stackFrame.variables();
 			this.variables = new ArrayList(underlyingVariables.size() + 1);
-
-
-	
 			for (Iterator iterator = underlyingVariables.iterator(); iterator.hasNext();) {
 				Variable variable = (Variable) iterator.next();
 				JavaScriptVariable jsdiVariable = new JavaScriptVariable(this, variable);
@@ -161,7 +152,8 @@ public final class JavaScriptStackFrame extends JavaScriptDebugElement implement
 			});
 			
 			// add the "this" object at the front
-			variables.add(0, new JavaScriptVariable(this, stackFrame.thisObject()));			
+			thisvar = new JavaScriptVariable(this, stackFrame.thisObject());
+			variables.add(0, thisvar);			
 		}
 		return (IVariable[]) this.variables.toArray(new IVariable[this.variables.size()]);
 	}
@@ -372,4 +364,20 @@ public final class JavaScriptStackFrame extends JavaScriptDebugElement implement
 		return null;
 	}
 
+	/* (non-Javadoc)
+	 * @see org.eclipse.wst.jsdt.debug.internal.core.model.JavaScriptDebugElement#getAdapter(java.lang.Class)
+	 */
+	public Object getAdapter(Class adapter) {
+		if(IJavaScriptStackFrame.class == adapter) {
+			return this;
+		}
+		return super.getAdapter(adapter);
+	}
+	
+	/* (non-Javadoc)
+	 * @see org.eclipse.wst.jsdt.debug.core.model.IJavaScriptStackFrame#getThisObject()
+	 */
+	public IVariable getThisObject() {
+		return thisvar;
+	}
 }

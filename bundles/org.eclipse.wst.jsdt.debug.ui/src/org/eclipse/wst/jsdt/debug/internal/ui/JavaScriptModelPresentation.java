@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009 IBM Corporation and others.
+ * Copyright (c) 2009, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,7 +11,9 @@
 package org.eclipse.wst.jsdt.debug.internal.ui;
 
 import java.io.File;
+import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
 import java.util.HashMap;
 
 import org.eclipse.core.filesystem.EFS;
@@ -19,14 +21,20 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.URIUtil;
 import org.eclipse.debug.core.DebugException;
+import org.eclipse.debug.core.model.IBreakpoint;
+import org.eclipse.debug.core.model.IDebugElement;
 import org.eclipse.debug.core.model.IDebugTarget;
+import org.eclipse.debug.core.model.IDisconnect;
 import org.eclipse.debug.core.model.IStackFrame;
+import org.eclipse.debug.core.model.ITerminate;
 import org.eclipse.debug.core.model.IThread;
 import org.eclipse.debug.core.model.IValue;
 import org.eclipse.debug.core.model.IVariable;
+import org.eclipse.debug.core.sourcelookup.containers.LocalFileStorage;
 import org.eclipse.debug.ui.IDebugModelPresentationExtension;
 import org.eclipse.debug.ui.IValueDetailListener;
 import org.eclipse.jface.viewers.LabelProvider;
@@ -43,11 +51,17 @@ import org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptBreakpoint;
 import org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptFunctionBreakpoint;
 import org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptLineBreakpoint;
 import org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptLoadBreakpoint;
+import org.eclipse.wst.jsdt.debug.core.model.IJavaScriptStackFrame;
+import org.eclipse.wst.jsdt.debug.core.model.IJavaScriptThread;
 import org.eclipse.wst.jsdt.debug.core.model.IJavaScriptValue;
 import org.eclipse.wst.jsdt.debug.core.model.IScript;
 import org.eclipse.wst.jsdt.debug.core.model.IScriptGroup;
+import org.eclipse.wst.jsdt.debug.internal.core.Constants;
+import org.eclipse.wst.jsdt.debug.internal.core.JavaScriptDebugPlugin;
 import org.eclipse.wst.jsdt.debug.internal.core.TextUtils;
+import org.eclipse.wst.jsdt.debug.internal.core.breakpoints.JavaScriptExceptionBreakpoint;
 import org.eclipse.wst.jsdt.debug.internal.core.model.JavaScriptValue;
+import org.eclipse.wst.jsdt.debug.internal.ui.eval.JavaScriptInspectExpression;
 
 /**
  * Default model presentation for JSDI model elements
@@ -126,52 +140,188 @@ public class JavaScriptModelPresentation extends LabelProvider implements IDebug
 	 * @see org.eclipse.jface.viewers.LabelProvider#getText(java.lang.Object)
 	 */
 	public String getText(Object element) {
+		StringBuffer buffer = new StringBuffer();
 		try {
-			if(element instanceof IDebugTarget) {
-				return ((IDebugTarget)element).getName();
+			if(element instanceof IDebugElement) {
+				if(element instanceof IDebugTarget) {
+					buffer.append(((IDebugTarget)element).getName());
+				}
+				else if(element instanceof IStackFrame) {
+					buffer.append(getStackframeText((IJavaScriptStackFrame) element));
+				}
+				else if(element instanceof IThread) {
+					buffer.append(getThreadText((IJavaScriptThread) element));
+				}
+				else if(element instanceof IVariable) {
+					buffer.append(((IVariable)element).getName());
+				}
+				else if(element instanceof IValue) {
+					buffer.append(((IValue)element).getValueString());
+				}
+				else if(element instanceof IScriptGroup) {
+					buffer.append(Messages.scripts);
+				}
+				else if(element instanceof IScript) {
+					buffer.append(getScriptText((IScript) element));
+				}
 			}
-			if(element instanceof IStackFrame) {
-				return ((IStackFrame)element).getName();
+			if(element instanceof JavaScriptInspectExpression) {
+				JavaScriptInspectExpression exp = (JavaScriptInspectExpression) element;
+				return exp.getValue().getReferenceTypeName();
 			}
-			if(element instanceof IThread) {
-				return ((IThread)element).getName();
+			if(element instanceof ITerminate) {
+				if(((ITerminate)element).isTerminated()) {
+					buffer.insert(0, Messages.terminated);
+				}
+				else if(element instanceof IDisconnect) {
+					if(((IDisconnect)element).isDisconnected()) {
+						buffer.insert(0, Messages.disconnected);
+					}
+				}
 			}
-			if(element instanceof IVariable) {
-				return ((IVariable)element).getName();
+			else if(element instanceof IDisconnect) {
+				if(((IDisconnect)element).isDisconnected()) {
+					buffer.insert(0, Messages.disconnected);
+				}
 			}
-			if(element instanceof IValue) {
-				return ((IValue)element).getValueString();
+			else if(element instanceof IJavaScriptFunctionBreakpoint) {
+				buffer.append(getFunctionBreakpointText((IJavaScriptFunctionBreakpoint) element));
 			}
-			if(element instanceof IJavaScriptFunctionBreakpoint) {
-				return getFunctionBreakpointText((IJavaScriptFunctionBreakpoint) element);
+			else if(element instanceof IJavaScriptLoadBreakpoint) {
+				buffer.append(getScriptLoadBreakpointText((IJavaScriptLoadBreakpoint) element));
 			}
-			if(element instanceof IJavaScriptLoadBreakpoint) {
-				return getScriptLoadBreakpointText((IJavaScriptLoadBreakpoint) element);
-			}
-			if(element instanceof IJavaScriptLineBreakpoint) {
-				return getLineBreakpointText((IJavaScriptLineBreakpoint) element);
-			}
-			if(element instanceof IScriptGroup) {
-				return Messages.scripts;
-			}
-			if(element instanceof IScript) {
-				return getScriptText((IScript) element);
+			else if(element instanceof IJavaScriptLineBreakpoint) {
+				buffer.append(getLineBreakpointText((IJavaScriptLineBreakpoint) element));
 			}
 		}
 		catch(CoreException ce) {
 			JavaScriptDebugUIPlugin.log(ce);
+			buffer.append(Messages.unknown);
 		}
-		return element.toString();
+		if(buffer.length() < 1) {
+			return Messages.unknown;
+		}
+		return buffer.toString();
+	}
+	
+	/**
+	 * Computes the thread name + adornment
+	 * 
+	 * @param thread
+	 * @return
+	 * @throws DebugException
+	 */
+	String getThreadText(IJavaScriptThread thread) throws DebugException {
+		String adornment = Messages.unknown_state;
+		if(thread.isSuspended()) {
+			IBreakpoint[] bps = thread.getBreakpoints();
+			if(bps.length > 0) {
+				try {
+					IJavaScriptBreakpoint breakpoint = (IJavaScriptBreakpoint) bps[0];
+					if (breakpoint instanceof IJavaScriptLoadBreakpoint) {
+						String name = breakpoint.getScriptPath();
+						if (Constants.EMPTY_STRING.equals(name)) {
+							name = getSourceName(thread);
+						}
+						else {
+							//decode it
+							try {
+								name = URLDecoder.decode(name, Constants.UTF_8);
+							}
+							catch(UnsupportedEncodingException uee) {
+								//ignore
+							}
+						}
+						adornment = NLS.bind(Messages.suspend_loading_script, name);
+					}
+					else if(breakpoint instanceof JavaScriptExceptionBreakpoint) {
+						adornment = NLS.bind(Messages.suspended_on_exception, breakpoint.getMarker().getAttribute(JavaScriptExceptionBreakpoint.MESSAGE));
+					}
+					else if (breakpoint instanceof IJavaScriptLineBreakpoint) {
+						IJavaScriptLineBreakpoint bp = (IJavaScriptLineBreakpoint) breakpoint;
+						adornment = NLS.bind(Messages.suspended_on_line_breakpoint, new String[] { Integer.toString(bp.getLineNumber()), getSourceName(thread) });
+					}
+					else if(breakpoint instanceof IJavaScriptFunctionBreakpoint) {
+						IJavaScriptFunctionBreakpoint bp = (IJavaScriptFunctionBreakpoint) breakpoint;
+						adornment = NLS.bind(Messages.suspended_on_func_breakpoint, new String[] {bp.getFunctionName(), getSourceName(thread)});
+					}
+					// TODO also need to report stopped at debugger; statement
+				} catch (CoreException ce) {
+					JavaScriptDebugPlugin.log(ce);
+				}
+			}
+			else {
+				adornment = Messages.suspended_state;
+			}
+		}
+		else if(thread.isStepping()) {
+			adornment = Messages.stepping_state;
+		}
+		else if(thread.isTerminated()) {
+			adornment = Messages.terminated_state;
+		}
+		else {
+			adornment = Messages.running_state;
+		}
+		return NLS.bind(Messages.thread_name, new String[] {thread.getName(), adornment});
+	}
+	
+	/**
+	 * Returns the name of the source from the top stackframe or a default name
+	 * <code>&lt;evaluated_source&gt;</code>
+	 * 
+	 * @return the name for the source
+	 * @throws DebugException
+	 */
+	String getSourceName(IJavaScriptThread thread) throws DebugException {
+		IJavaScriptStackFrame frame = (IJavaScriptStackFrame) thread.getTopStackFrame();
+		if (frame != null) {
+			try {
+				String uri = URLDecoder.decode(frame.getSourceName(), Constants.UTF_8);
+				return TextUtils.shortenText(uri, 100);
+			}
+			catch (UnsupportedEncodingException uee) {
+				//ignore
+			}
+		}
+		// all else failed say "evaluated_script"
+		return Messages.evald_script;
+	}
+	
+	/**
+	 * Returns the display name of the given {@link IJavaScriptStackFrame}
+	 * 
+	 * @param frame
+	 * @return the display text or {@link Messages#unknown}
+	 * @throws DebugException
+	 */
+	String getStackframeText(IJavaScriptStackFrame frame) throws DebugException {
+		try {
+			return TextUtils.shortenText(NLS.bind(Messages.stackframe_name, new String[] {
+					URLDecoder.decode(frame.getName(), Constants.UTF_8),
+					Integer.toString(frame.getLineNumber())}), 100);
+		}
+		catch (UnsupportedEncodingException uee) {
+			//ignore
+		}
+		return Messages.unknown;
 	}
 	
 	/**
 	 * Returns the display text for the given script element
+	 * 
 	 * @param script
-	 * @return the display text for the given script
+	 * @return the display text for the given script or {@link Messages#unknown}
 	 */
 	String getScriptText(IScript script) {
-		String uri = script.sourceURI().toString();
-		return TextUtils.shortenText(uri, 100);
+		String uri;
+		try {
+			uri = URLDecoder.decode(script.sourceURI().toString(), Constants.UTF_8);
+			return TextUtils.shortenText(uri, 100);
+		} catch (UnsupportedEncodingException e) {
+			//do nothing
+		}
+		return Messages.unknown;
 	}
 
 	/**
@@ -182,8 +332,8 @@ public class JavaScriptModelPresentation extends LabelProvider implements IDebug
 	 */
 	String getLineBreakpointText(IJavaScriptLineBreakpoint breakpoint) throws CoreException {
 		String path = getElementPath(breakpoint.getScriptPath());
-		StringBuffer buffer = new StringBuffer();
-		buffer.append(path).append(NLS.bind(Messages.bp_line_number, new String[] {Integer.toString(breakpoint.getLineNumber())}));
+		StringBuffer buffer = new StringBuffer(path);
+		buffer.append(NLS.bind(Messages.bp_line_number, new String[] {Integer.toString(breakpoint.getLineNumber())}));
 		int hitcount = breakpoint.getHitCount();
 		if(hitcount > 0) {
 			buffer.append(NLS.bind(Messages.bp_hit_count, new String[] {Integer.toString(hitcount)}));
@@ -205,8 +355,7 @@ public class JavaScriptModelPresentation extends LabelProvider implements IDebug
 	 */
 	String getFunctionBreakpointText(IJavaScriptFunctionBreakpoint breakpoint) throws CoreException {
 		String path = getElementPath(breakpoint.getScriptPath());
-		StringBuffer buffer = new StringBuffer();
-		buffer.append(path);
+		StringBuffer buffer = new StringBuffer(path);
 		if(breakpoint.isEntry()) {
 			if(breakpoint.isExit()) {
 				buffer.append(Messages.bp_entry_and_exit);
@@ -241,8 +390,7 @@ public class JavaScriptModelPresentation extends LabelProvider implements IDebug
 	 */
 	String getScriptLoadBreakpointText(IJavaScriptLoadBreakpoint breakpoint) throws CoreException {
 		String path = getElementPath(breakpoint.getScriptPath());
-		StringBuffer buffer = new StringBuffer();
-		buffer.append(path);
+		StringBuffer buffer = new StringBuffer(path);
 		int hitcount = breakpoint.getHitCount();
 		if(hitcount > 0) {
 			buffer.append(NLS.bind(Messages.bp_hit_count, new String[] {Integer.toString(hitcount)}));
@@ -259,7 +407,7 @@ public class JavaScriptModelPresentation extends LabelProvider implements IDebug
 	 * @return
 	 */
 	String getElementPath(String path) {
-		if(! showQualifiedNames()) {
+		if(!showQualifiedNames()) {
 			try {
 				return URIUtil.lastSegment(URIUtil.fromString(path));
 			}
@@ -370,6 +518,9 @@ public class JavaScriptModelPresentation extends LabelProvider implements IDebug
 	 * @see org.eclipse.debug.ui.ISourcePresentation#getEditorInput(java.lang.Object)
 	 */
 	public IEditorInput getEditorInput(Object element) {
+		if(element instanceof LocalFileStorage) {
+			return getEditorInput(((LocalFileStorage)element).getFile());
+		}
 		if(element instanceof File) {
 			return new FileStoreEditorInput(EFS.getLocalFileSystem().fromLocalFile((File) element));
 		}
@@ -379,8 +530,9 @@ public class JavaScriptModelPresentation extends LabelProvider implements IDebug
 		if(element instanceof IJavaScriptLoadBreakpoint) {
 			try {
 				IJavaScriptLoadBreakpoint bp = (IJavaScriptLoadBreakpoint) element;
-				IResource resource = ResourcesPlugin.getWorkspace().getRoot().findMember(new Path(bp.getScriptPath()));
-				if(resource.getType() == IResource.FILE) {
+				IPath path = new Path(bp.getScriptPath());
+				IResource resource = ResourcesPlugin.getWorkspace().getRoot().findMember(path);
+				if(resource != null && resource.getType() == IResource.FILE) {
 					return new FileEditorInput((IFile) resource);
 				}
 			}

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -46,6 +46,7 @@ import org.eclipse.wst.jsdt.debug.core.jsdi.request.DebuggerStatementRequest;
 import org.eclipse.wst.jsdt.debug.core.jsdi.request.ScriptLoadRequest;
 import org.eclipse.wst.jsdt.debug.core.jsdi.request.ThreadEnterRequest;
 import org.eclipse.wst.jsdt.debug.core.jsdi.request.ThreadExitRequest;
+import org.eclipse.wst.jsdt.debug.core.jsdi.request.VMDeathRequest;
 import org.eclipse.wst.jsdt.debug.core.model.IJavaScriptDebugTarget;
 import org.eclipse.wst.jsdt.debug.core.model.IScript;
 import org.eclipse.wst.jsdt.debug.core.model.IScriptGroup;
@@ -73,8 +74,9 @@ public class JavaScriptDebugTarget extends JavaScriptDebugElement implements IJa
 	private final ILaunch launch;
 	private final boolean supportsTerminate;
 	private final boolean supportsDisconnect;
-	private final String name;
 	private final EventDispatcher eventDispatcher;
+	private String name;
+	private Object lock = new Object();
 
 	private ArrayList threads = new ArrayList();
 	private ArrayList breakpoints = new ArrayList();
@@ -89,6 +91,7 @@ public class JavaScriptDebugTarget extends JavaScriptDebugElement implements IJa
 	private ThreadEnterRequest threadEnterRequest;
 	private ThreadExitRequest threadExitRequest;
 	private ScriptLoadRequest scriptLoadrequest;
+	private VMDeathRequest deathRequest;
 
 	private DebuggerStatementRequest debuggerStatementRequest;
 	
@@ -98,28 +101,18 @@ public class JavaScriptDebugTarget extends JavaScriptDebugElement implements IJa
 	 * @param vm
 	 * @param process
 	 * @param launch
-	 * @param name
 	 * @param supportsTerminate
 	 * @param supportsDisconnect
 	 */
-	public JavaScriptDebugTarget(VirtualMachine vm, IProcess process, ILaunch launch,
-			String name, boolean supportsTerminate, boolean supportsDisconnect) {
+	public JavaScriptDebugTarget(VirtualMachine vm, IProcess process, ILaunch launch, boolean supportsTerminate, boolean supportsDisconnect) {
 		super(null);
 		this.vm = vm;
 		this.process = process;
 		this.launch = launch;
 		this.supportsTerminate = supportsTerminate;
 		this.supportsDisconnect = supportsDisconnect;
-		if (name != null) {
-			this.name = name;
-		} else if (vm.name() != null) {
-			this.name = vm.name();
-		} else {
-			this.name = DEFAULT_NAME;
-		}
 		this.eventDispatcher = new EventDispatcher(this);
 		this.scriptgroup = new ScriptGroup(this);
-		// TODO: consider calling this outside of constructor
 		initialize();
 	}
 
@@ -136,6 +129,10 @@ public class JavaScriptDebugTarget extends JavaScriptDebugElement implements IJa
 		scriptLoadrequest = getEventRequestManager().createScriptLoadRequest();
 		scriptLoadrequest.setEnabled(true);
 		addJSDIEventListener(this, scriptLoadrequest);
+		
+		deathRequest = getEventRequestManager().createVMDeathRequest();
+		deathRequest.setEnabled(true);
+		addJSDIEventListener(this, deathRequest);
 		
 		getLaunch().addDebugTarget(this);
 
@@ -166,7 +163,7 @@ public class JavaScriptDebugTarget extends JavaScriptDebugElement implements IJa
 			}
 		} catch (DebugException e) {
 			JavaScriptDebugPlugin.log(e);
-		} finally {
+			//in case we failed
 			cleanup();
 			fireTerminateEvent();
 		}
@@ -183,6 +180,7 @@ public class JavaScriptDebugTarget extends JavaScriptDebugElement implements IJa
 		removeAllThreads();
 		removeAllBreakpoints();
 		removeJSDIEventListener(this, scriptLoadrequest);
+		removeJSDIEventListener(this, deathRequest);
 		this.scriptgroup = null;
 	}
 
@@ -210,6 +208,11 @@ public class JavaScriptDebugTarget extends JavaScriptDebugElement implements IJa
 	 * @see org.eclipse.debug.core.model.IDebugTarget#getName()
 	 */
 	public String getName() throws DebugException {
+		synchronized (lock) {
+			if(name == null) {
+				name = NLS.bind(ModelMessages.debug_target_name, new String[] {vm.name(), vm.version()});
+			}
+		}
 		return name;
 	}
 
@@ -272,7 +275,8 @@ public class JavaScriptDebugTarget extends JavaScriptDebugElement implements IJa
 			ScriptReference script = null;
 			for (Iterator iter = scripts.iterator(); iter.hasNext();) {
 				script = (ScriptReference) iter.next();
-				if (Script.resolveName(script.sourceURI()).equals(name)) {
+				String sname = Script.resolveName(script.sourceURI()); 
+				if (sname.equals(name)) {
 					byname.add(script);
 				}
 			}
@@ -305,7 +309,7 @@ public class JavaScriptDebugTarget extends JavaScriptDebugElement implements IJa
 	 */
 	public synchronized List allScripts() {
 		if(iScriptCache == null) {
-			ArrayList all = (ArrayList) getVM().allScripts();
+			List all = getVM().allScripts();
 			if(all.size() > 0) { 
 				iScriptCache = new ArrayList(all.size());
 				for (int i = 0; i < all.size(); i++) {
@@ -583,7 +587,10 @@ public class JavaScriptDebugTarget extends JavaScriptDebugElement implements IJa
 			// first resume the VM, do not leave it in a suspended state
 			// https://bugs.eclipse.org/bugs/show_bug.cgi?id=304574
 			resumeVM(true);
-		} 
+			if(this.process != null) {
+				this.process.terminate();
+			}
+		}  
 		catch(RuntimeException rte) {}
 		finally {
 			cleanup();
@@ -721,6 +728,7 @@ public class JavaScriptDebugTarget extends JavaScriptDebugElement implements IJa
 		}
 		JavaScriptThread jsdiThread = findThread(thread);
 		if (jsdiThread != null) {
+			jsdiThread.fireChangeEvent(DebugEvent.CONTENT);
 			return jsdiThread;
 		}
 		jsdiThread = new JavaScriptThread(this, thread);
@@ -792,15 +800,37 @@ public class JavaScriptDebugTarget extends JavaScriptDebugElement implements IJa
 			return;
 		}
 		try {
-			((JavaScriptBreakpoint) breakpoint).addToTarget(this);
 			synchronized (this.breakpoints) {
-				this.breakpoints.add(breakpoint);
+				if(!this.breakpoints.contains(breakpoint)) {
+					if(!shouldSkipBreakpoint(breakpoint)) {
+						//only add to the VM if it should not be skipped
+						((JavaScriptBreakpoint) breakpoint).addToTarget(this);
+					}
+					this.breakpoints.add(breakpoint);
+				}
 			}
 		} catch (CoreException ce) {
 			JavaScriptDebugPlugin.log(ce);
 		}
 	}
 
+	/**
+	 * Returns if the given breakpoint should be skipped
+	 * 
+	 * @param breakpoint
+	 * @return <code>true</code> if the breakpoint should be skipped, <code>false</code> otherwise
+	 */
+	boolean shouldSkipBreakpoint(IBreakpoint breakpoint) {
+		try {
+			DebugPlugin plugin = DebugPlugin.getDefault();
+			return plugin != null && breakpoint.isRegistered() && !plugin.getBreakpointManager().isEnabled();
+		}
+		catch(CoreException ce) {
+			//there is something wrong, skip it
+			return true;
+		}
+	}
+	
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -808,8 +838,6 @@ public class JavaScriptDebugTarget extends JavaScriptDebugElement implements IJa
 	 * org.eclipse.debug.core.IBreakpointListener#breakpointChanged(org.eclipse.debug.core.model.IBreakpoint, org.eclipse.core.resources.IMarkerDelta)
 	 */
 	public synchronized void breakpointChanged(IBreakpoint breakpoint,IMarkerDelta delta) {
-		breakpointRemoved(breakpoint, delta);
-		breakpointAdded(breakpoint);
 	}
 
 	/*
@@ -858,6 +886,15 @@ public class JavaScriptDebugTarget extends JavaScriptDebugElement implements IJa
 				case DebugEvent.TERMINATE: {
 					if(event.getSource().equals(getProcess())) {
 						shutdown();
+					}
+					break;
+				}
+				case DebugEvent.CHANGE: {
+					if(event.getSource().equals(scriptgroup)) {
+						if(iScriptCache != null) {
+							iScriptCache.clear();
+							iScriptCache = null;
+						}
 					}
 					break;
 				}
@@ -933,6 +970,10 @@ public class JavaScriptDebugTarget extends JavaScriptDebugElement implements IJa
 		if (event instanceof ThreadExitEvent) {
 			ThreadExitEvent threadExitEvent = (ThreadExitEvent) event;
 			terminateThread(threadExitEvent.thread());
+			//need to update the script node in the event any scripts have been unloaded when the thread exits
+			if(scriptgroup != null) {
+				fireEvent(new DebugEvent(scriptgroup, DebugEvent.CHANGE, DebugEvent.CONTENT));
+			}
 			return false;
 		}
 		if (event instanceof ScriptLoadEvent) {
@@ -956,14 +997,8 @@ public class JavaScriptDebugTarget extends JavaScriptDebugElement implements IJa
 
 		// handle VM events i.e. death / disconnect
 		if (event instanceof VMDeathEvent) {
-			try {
-				if (!this.terminated) {
-					eventCleanup();
-				}
-			} finally {
-				shutdown();
-			}
-			return false;
+			shutdown();
+			return true;
 		}
 		if (event instanceof VMDisconnectEvent) {
 			try {

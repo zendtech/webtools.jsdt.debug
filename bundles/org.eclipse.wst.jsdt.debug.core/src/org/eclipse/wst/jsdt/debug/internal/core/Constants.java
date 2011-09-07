@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -84,5 +84,11 @@ public interface Constants {
 	 * Preference to suspend execution when a thrown exception is encountered
 	 * @since 1.1
 	 */
-	public static final String SUSPEN_ON_THROWN_EXCEPTION = JavaScriptDebugPlugin.PLUGIN_ID + ".suspend_on_thrown_exceptions"; //$NON-NLS-1$
+	public static final String SUSPEND_ON_THROWN_EXCEPTION = JavaScriptDebugPlugin.PLUGIN_ID + ".suspend_on_thrown_exceptions"; //$NON-NLS-1$
+	
+	/**
+	 * Preference to delete the External JavaScript Source project when the workbench exists
+	 * @since 1.1
+	 */
+	public static final String DELETE_EXT_PROJECT_ON_EXIT = JavaScriptDebugPlugin.PLUGIN_ID + ".delete_ext_project_on_exit"; //$NON-NLS-1$
 }

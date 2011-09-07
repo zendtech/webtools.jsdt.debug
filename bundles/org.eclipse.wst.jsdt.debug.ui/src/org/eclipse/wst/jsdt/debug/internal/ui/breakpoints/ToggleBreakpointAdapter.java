@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,6 +13,7 @@ package org.eclipse.wst.jsdt.debug.internal.ui.breakpoints;
 import java.util.HashMap;
 
 import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
@@ -31,6 +32,7 @@ import org.eclipse.jface.text.ITextSelection;
 import org.eclipse.jface.text.TextSelection;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
+import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
@@ -46,18 +48,17 @@ import org.eclipse.wst.jsdt.core.IMember;
 import org.eclipse.wst.jsdt.core.ISourceRange;
 import org.eclipse.wst.jsdt.core.IType;
 import org.eclipse.wst.jsdt.core.ITypeRoot;
-import org.eclipse.wst.jsdt.core.dom.AST;
-import org.eclipse.wst.jsdt.core.dom.ASTParser;
 import org.eclipse.wst.jsdt.core.dom.JavaScriptUnit;
 import org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptBreakpoint;
 import org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptFunctionBreakpoint;
 import org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptLineBreakpoint;
 import org.eclipse.wst.jsdt.debug.core.model.JavaScriptDebugModel;
-import org.eclipse.wst.jsdt.debug.internal.core.JavaScriptDebugPlugin;
 import org.eclipse.wst.jsdt.debug.internal.ui.DebugWCManager;
+import org.eclipse.wst.jsdt.internal.ui.JavaScriptPlugin;
+import org.eclipse.wst.jsdt.internal.ui.javaeditor.ASTProvider;
 
 /**
- * Javascript adapter for toggling breakpoints in the JSDT editor
+ * JavaScript adapter for toggling breakpoints in the JSDT editor
  * 
  * @since 1.0
  */
@@ -90,10 +91,14 @@ public class ToggleBreakpointAdapter implements IToggleBreakpointsTargetExtensio
             		ITextEditor editor = getTextEditor(part);
 					if(editor != null && part instanceof IEditorPart) {
 						if(element == null) {
-							reportToStatusLine(part, Messages.failed_to_create_line_bp);
+							reportToStatusLine(part, Messages.failed_line_bp_no_element);
 							return Status.CANCEL_STATUS;
 						}
-						IResource resource = getBreakpointResource(element);
+						IResource resource = element.getResource();
+						if(resource == null) {
+							reportToStatusLine(part, NLS.bind(Messages.failed_line_bp_no_resource, element.getElementName()));
+							return Status.CANCEL_STATUS;
+						}
 						IBreakpoint bp = lineBreakpointExists(resource, linenumber);
 						if(bp != null) {
 							DebugPlugin.getDefault().getBreakpointManager().removeBreakpoint(bp, true);
@@ -135,44 +140,8 @@ public class ToggleBreakpointAdapter implements IToggleBreakpointsTargetExtensio
 	 * @return the path to the script 
 	 */
 	String getScriptPath(IJavaScriptElement element) {
-		IPath path  = getElementScriptPath(element).makeRelative();
-		if(JavaScriptDebugPlugin.isExternalSource(path)) {
-			String extpath = (JavaScriptDebugPlugin.getExternalScriptPath(path.removeFirstSegments(1)));
-			if(extpath != null) {
-				return extpath;
-			}
-		}
-		return path.toString();
-	}
-
-	private IPath getElementScriptPath(IJavaScriptElement element) {
-		switch (element.getElementType()) {
-		case IJavaScriptElement.TYPE: {
-			return ((IType) element).getPath();
-		}
-		case IJavaScriptElement.METHOD:
-		case IJavaScriptElement.FIELD: {
-			IMember member = (IMember) element;
-			IType type = member.getDeclaringType();
-			if (type == null) {
-				IJavaScriptElement parent = element.getParent();
-				switch (parent.getElementType()) {
-				case IJavaScriptElement.TYPE: {
-					return ((IType) parent).getPath();
-				}
-				case IJavaScriptElement.JAVASCRIPT_UNIT:
-				case IJavaScriptElement.CLASS_FILE: {
-					return ((ITypeRoot) parent).getPath();
-				}
-				}
-				return element.getParent().getPath();
-			}
-			return type.getPath();
-		}
-		default: {
-			return element.getPath();
-		}
-		}
+		IPath path = element.getPath();
+		return path.makeAbsolute().toString();
 	}
 	
 	/**
@@ -282,18 +251,23 @@ public class ToggleBreakpointAdapter implements IToggleBreakpointsTargetExtensio
 	 * Delegate for toggling a method breakpoint
 	 * @param part
 	 * @param element
+	 * @param line
 	 */
-	void toggleMethodBreakpoint(final IWorkbenchPart part, final IJavaScriptElement element) {
+	void toggleMethodBreakpoint(final IWorkbenchPart part, final IJavaScriptElement element, final int line) {
 		Job job = new Job("Toggle Function Breakpoints") { //$NON-NLS-1$
             protected IStatus run(IProgressMonitor monitor) {
             	try {
 					if(element == null) {
-						reportToStatusLine(part, Messages.failed_to_create_function_bp);
+						reportToStatusLine(part, Messages.failed_function_bp_no_element);
 						return Status.CANCEL_STATUS;
 					}
 					if(element.getElementType() == IJavaScriptElement.METHOD) {
 						IFunction method = (IFunction) element;
-						IResource resource = getBreakpointResource(element);
+						IResource resource = element.getResource();
+						if(resource == null) {
+							reportToStatusLine(part, NLS.bind(Messages.failed_function_bp_no_resource, element.getElementName()));
+							return Status.CANCEL_STATUS;
+						}
 						IBreakpoint bp = methodBreakpointExists(resource, method.getElementName(), method.getSignature());
 						if(bp != null) {
 							DebugPlugin.getDefault().getBreakpointManager().removeBreakpoint(bp, true);
@@ -310,6 +284,7 @@ public class ToggleBreakpointAdapter implements IToggleBreakpointsTargetExtensio
 						//nothing else we can do
 						attributes.put(IJavaScriptBreakpoint.TYPE_NAME, getTypeName(element));
 						attributes.put(IJavaScriptBreakpoint.SCRIPT_PATH, getScriptPath(element));
+						attributes.put(IMarker.LINE_NUMBER, new Integer(line));
 						IJavaScriptFunctionBreakpoint breakpoint = JavaScriptDebugModel.createFunctionBreakpoint(resource, method.getElementName(), method.getSignature(), start, end, attributes, true);
 						breakpoint.setJavaScriptElementHandle(element.getHandleIdentifier());
 						return Status.OK_STATUS;
@@ -373,7 +348,7 @@ public class ToggleBreakpointAdapter implements IToggleBreakpointsTargetExtensio
 		if(selection instanceof ITextSelection) {
 			ITextEditor textEditor = getTextEditor(part);
 			if(textEditor == null) {
-				reportToStatusLine(part, Messages.no_valid_location);
+				reportToStatusLine(part, Messages.no_editor_could_be_found);
 				return;
 			}
 			ITypeRoot root = getTypeRoot(textEditor.getEditorInput());
@@ -384,12 +359,10 @@ public class ToggleBreakpointAdapter implements IToggleBreakpointsTargetExtensio
                 }
             }
             if(root == null) {
-            	reportToStatusLine(part, Messages.no_valid_location);
+            	reportToStatusLine(part, Messages.type_root_could_not_be_computed);
             	return;
             }
-			ASTParser parser = ASTParser.newParser(AST.JLS3);
-			parser.setSource(root);
-			JavaScriptUnit jsunit = (JavaScriptUnit) parser.createAST(null);
+			JavaScriptUnit jsunit = JavaScriptPlugin.getDefault().getASTProvider().getAST(root, ASTProvider.WAIT_YES, null);
 			BreakpointLocationFinder finder = new BreakpointLocationFinder(jsunit, ((TextSelection)selection).getStartLine()+1, false);
 			jsunit.accept(finder);
 			switch(finder.getLocation()) {
@@ -406,7 +379,7 @@ public class ToggleBreakpointAdapter implements IToggleBreakpointsTargetExtensio
 					return;
 				}
 				case BreakpointLocationFinder.FUNCTION: {
-					toggleMethodBreakpoint(part, root.getElementAt(finder.getOffset()));
+					toggleMethodBreakpoint(part, root.getElementAt(finder.getOffset()), finder.getLineNumber());
 					return;
 				}
 			}
@@ -417,7 +390,7 @@ public class ToggleBreakpointAdapter implements IToggleBreakpointsTargetExtensio
         	if(o instanceof IMember) {
         		IMember member = (IMember) o;
         		if(member.getElementType() == IJavaScriptElement.METHOD) {
-    				toggleMethodBreakpoint(part, member);
+    				toggleMethodBreakpoint(part, member, -1);
     			}
         	}
 		}

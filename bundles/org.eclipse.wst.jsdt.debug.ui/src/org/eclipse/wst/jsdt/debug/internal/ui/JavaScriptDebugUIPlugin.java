@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -16,6 +16,9 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.preferences.InstanceScope;
+import org.eclipse.jface.preference.IPreferenceStore;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IEditorReference;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchListener;
@@ -25,7 +28,9 @@ import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.ide.ResourceUtil;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
+import org.eclipse.ui.preferences.ScopedPreferenceStore;
 import org.eclipse.wst.jsdt.debug.internal.core.JavaScriptDebugPlugin;
+import org.eclipse.wst.jsdt.debug.internal.ui.eval.EvaluationManager;
 import org.osgi.framework.BundleContext;
 
 /**
@@ -48,6 +53,7 @@ public class JavaScriptDebugUIPlugin extends AbstractUIPlugin implements IWorkbe
 
 	// The shared instance
 	private static JavaScriptDebugUIPlugin plugin;
+	private static ScopedPreferenceStore corestore = new ScopedPreferenceStore(new InstanceScope(), JavaScriptDebugPlugin.PLUGIN_ID);
 	
 	/*
 	 * (non-Javadoc)
@@ -57,6 +63,7 @@ public class JavaScriptDebugUIPlugin extends AbstractUIPlugin implements IWorkbe
 		super.start(context);
 		plugin = this;
 		PlatformUI.getWorkbench().addWorkbenchListener(this);
+		EvaluationManager.getManager().start();
 	}
 
 	/*
@@ -67,6 +74,7 @@ public class JavaScriptDebugUIPlugin extends AbstractUIPlugin implements IWorkbe
 		try {
 			plugin = null;
 			PlatformUI.getWorkbench().removeWorkbenchListener(this);
+			EvaluationManager.getManager().stop();
 			super.stop(context);
 		}
 		finally {
@@ -172,5 +180,28 @@ public class JavaScriptDebugUIPlugin extends AbstractUIPlugin implements IWorkbe
 	 * @see org.eclipse.ui.IWorkbenchListener#postShutdown(org.eclipse.ui.IWorkbench)
 	 */
 	public void postShutdown(IWorkbench workbench) {
+	}
+	
+	/**
+	 * Returns the standard display to be used. The method first checks, if
+	 * the thread calling this method has an associated display. If so, this
+	 * display is returned. Otherwise the method returns the default display.
+	 */
+	public static Display getStandardDisplay() {
+		Display display;
+		display = Display.getCurrent();
+		if (display == null) {
+			display = Display.getDefault();
+		}
+		return display;		
+	}
+	
+	/**
+	 * Returns an {@link IPreferenceStore} wrapper for the {@link JavaScriptDebugPlugin} core preferences
+	 * 
+	 * @return an {@link IPreferenceStore} for the core preferences
+	 */
+	public static IPreferenceStore getCorePreferenceStore() {
+		return corestore;
 	}
 }

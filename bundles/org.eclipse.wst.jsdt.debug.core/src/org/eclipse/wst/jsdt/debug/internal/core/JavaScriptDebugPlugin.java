@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,15 +12,19 @@ package org.eclipse.wst.jsdt.debug.internal.core;
 
 import java.net.URI;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Plugin;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.wst.jsdt.debug.internal.core.launching.ConnectorsManager;
 import org.eclipse.wst.jsdt.debug.internal.core.model.BreakpointParticipantManager;
 import org.osgi.framework.BundleContext;
@@ -126,7 +130,16 @@ public class JavaScriptDebugPlugin extends Plugin {
 	 * @return <code>true</code> if the path is in the external source project, <code>false</code> otherwise
 	 */
 	public static boolean isExternalSource(IPath path) {
-		return path.segment(0).equals(Messages.external_javascript_source);
+		if(Messages.external_javascript_source.equals(path.segment(0))) {
+			return true;
+		}
+		//try to look it up. The name might not have the project name in it
+		IProject project = getExternalSourceProject(false);
+		if(project != null) {
+			IResource res = project.findMember(path);
+			return res != null && res.exists();
+		}
+		return false;
 	}
 	
 	/*
@@ -156,8 +169,10 @@ public class JavaScriptDebugPlugin extends Plugin {
 			if(prefmanager != null) {
 				prefmanager.stop();
 			}
-			if(extSrcProject != null && extSrcProject.exists()) {
-				extSrcProject.delete(true, null);
+			if(new InstanceScope().getNode(PLUGIN_ID).getBoolean(Constants.DELETE_EXT_PROJECT_ON_EXIT, false)) {
+				if(extSrcProject != null && extSrcProject.exists()) {
+					extSrcProject.delete(true, null);
+				}
 			}
 		}
 		finally {
@@ -231,5 +246,26 @@ public class JavaScriptDebugPlugin extends Plugin {
 	 */
 	public static synchronized String getExternalScriptPath(IPath path) {
 		return (String) externalScriptPaths.get(path.makeAbsolute());
+	}
+	
+	/**
+	 * Tries to find a local script path given the specified URI.
+	 * Returns <code>null</code> if no mapping is found
+	 * 
+	 * @param uri the URI to find a source mapping for
+	 * @return the absolute local path to the script mapped to the given URI, or <code>null</code>
+	 */
+	public static synchronized String findExternalScriptPathFromURI(String uri) {
+		if(uri != null) {
+			Entry e = null;
+			for (Iterator i = externalScriptPaths.entrySet().iterator(); i.hasNext();) {
+				e = (Entry) i.next();
+				if(uri.equals(e.getValue())) {
+					IPath p = (IPath) e.getKey();
+					return p.toString();
+				}
+			}
+		}
+		return null;
 	}
 }

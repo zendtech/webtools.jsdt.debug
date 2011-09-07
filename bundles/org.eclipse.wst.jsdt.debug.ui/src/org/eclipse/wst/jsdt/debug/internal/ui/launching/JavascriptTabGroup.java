@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -18,7 +18,7 @@ import org.eclipse.debug.ui.ILaunchConfigurationTab;
 import org.eclipse.debug.ui.sourcelookup.SourceLookupTab;
 
 /**
- * Default tab group for Javascript debugging
+ * Default tab group for JavaScript debugging
  * 
  * @since 1.0
  */

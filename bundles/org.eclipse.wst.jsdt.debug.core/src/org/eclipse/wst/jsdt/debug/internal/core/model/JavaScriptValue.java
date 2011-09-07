@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -19,7 +19,11 @@ import java.util.List;
 import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IValue;
 import org.eclipse.debug.core.model.IVariable;
+import org.eclipse.jface.text.Document;
 import org.eclipse.osgi.util.NLS;
+import org.eclipse.text.edits.TextEdit;
+import org.eclipse.wst.jsdt.core.ToolFactory;
+import org.eclipse.wst.jsdt.core.formatter.CodeFormatter;
 import org.eclipse.wst.jsdt.debug.core.jsdi.ArrayReference;
 import org.eclipse.wst.jsdt.debug.core.jsdi.BooleanValue;
 import org.eclipse.wst.jsdt.debug.core.jsdi.FunctionReference;
@@ -33,6 +37,7 @@ import org.eclipse.wst.jsdt.debug.core.jsdi.Value;
 import org.eclipse.wst.jsdt.debug.core.jsdi.VirtualMachine;
 import org.eclipse.wst.jsdt.debug.core.model.IJavaScriptValue;
 import org.eclipse.wst.jsdt.debug.core.model.JavaScriptDebugModel;
+import org.eclipse.wst.jsdt.debug.internal.core.JavaScriptDebugPlugin;
 
 /**
  * Default implementation of {@link IValue}
@@ -41,10 +46,16 @@ import org.eclipse.wst.jsdt.debug.core.model.JavaScriptDebugModel;
  */
 public class JavaScriptValue extends JavaScriptDebugElement implements IJavaScriptValue {
 
+	public static final IVariable[] NO_VARIABLES = new IVariable[0];
+	
 	/**
 	 * the '[proto]' value
 	 */
 	public static final String PROTO = "[proto]"; //$NON-NLS-1$
+	/**
+	 * the 'constructor' value
+	 */
+	public static final String CONSTRUCTOR = "constructor"; //$NON-NLS-1$
 	/**
 	 * The 'this' value
 	 */
@@ -98,7 +109,28 @@ public class JavaScriptValue extends JavaScriptDebugElement implements IJavaScri
 			JavaScriptPrimitiveValue nvalue = (JavaScriptPrimitiveValue)this.value;
 			return nvalue.stringValue();
 		}
-		return this.value.valueString();
+		if(this.value instanceof FunctionReference) {
+			FunctionReference f = (FunctionReference) this.value;
+			String src = f.functionBody();
+			if(src != null) {
+				CodeFormatter formatter = ToolFactory.createCodeFormatter(null);
+				TextEdit edit = formatter.format(CodeFormatter.K_JAVASCRIPT_UNIT, src, 0, src.length(), 0, null);
+				if(edit != null) {
+					Document doc = new Document(src);
+					try {
+						edit.apply(doc);
+						return doc.get();
+					} catch (Exception e) {
+						JavaScriptDebugPlugin.log(e);
+					} 
+				}
+			}
+			return f.valueString();
+		}
+		if(this.value != null) {
+			return this.value.valueString();
+		}
+		return UNDEFINED;
 	}
 
 	/*
@@ -143,7 +175,13 @@ public class JavaScriptValue extends JavaScriptDebugElement implements IJavaScri
 		if (jsValue instanceof ObjectReference) {
 			ObjectReference ref = (ObjectReference) jsValue;
 			StringBuffer buffer = new StringBuffer();
-			buffer.append(NLS.bind(ModelMessages.JavaScriptValue_object_value_label, new String[] {jsValue.valueString(), ref.id().toString()}));
+			Number id = ref.id();
+			if(id == null) {
+				buffer.append(jsValue.valueString());
+			}
+			else {
+				buffer.append(NLS.bind(ModelMessages.JavaScriptValue_object_value_label, new String[] {jsValue.valueString(), id.toString()}));
+			}
 			return buffer.toString();
 		}
 		if (jsValue instanceof NumberValue) {
@@ -152,7 +190,6 @@ public class JavaScriptValue extends JavaScriptDebugElement implements IJavaScri
 				return JavaScriptDebugModel.numberToString(nvalue.value());
 			}
 		}
-		
 		if (jsValue instanceof StringValue) {
 			StringBuffer buffer = new StringBuffer();
 			buffer.append('"');
@@ -171,7 +208,7 @@ public class JavaScriptValue extends JavaScriptDebugElement implements IJavaScri
 	 */
 	public synchronized IVariable[] getVariables() throws DebugException {
 		if (!hasVariables()) {
-			return null;
+			return NO_VARIABLES;
 		}
 		if (this.properties == null) {
 			final ObjectReference reference = (ObjectReference) this.value;
@@ -210,16 +247,28 @@ public class JavaScriptValue extends JavaScriptDebugElement implements IJavaScri
 				public VirtualMachine virtualMachine() {
 					return reference.virtualMachine();
 				}
-
 				public String name() {
 					return PROTO;
 				}
-
 				public Value value() {
 					return reference.prototype();
 				}
 			};
-			properties.add(0, new JavaScriptProperty(this, prototype));			
+			properties.add(0, new JavaScriptProperty(this, prototype));
+			
+			//add the constructor
+			Property constructor = new Property() {
+				public VirtualMachine virtualMachine() {
+					return reference.virtualMachine();
+				}
+				public String name() {
+					return CONSTRUCTOR; 
+				}
+				public Value value() {
+					return reference.constructor();
+				}
+			};
+			properties.add(1, new JavaScriptProperty(this, constructor));
 		}
 		return (IVariable[]) this.properties.toArray(new IVariable[this.properties.size()]);
 	}

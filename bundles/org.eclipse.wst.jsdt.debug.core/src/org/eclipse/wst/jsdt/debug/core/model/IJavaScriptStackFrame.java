@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,6 +11,7 @@
 package org.eclipse.wst.jsdt.debug.core.model;
 
 import org.eclipse.debug.core.model.IStackFrame;
+import org.eclipse.debug.core.model.IVariable;
 import org.eclipse.wst.jsdt.debug.core.jsdi.NullValue;
 import org.eclipse.wst.jsdt.debug.core.jsdi.Value;
 
@@ -59,4 +60,13 @@ public interface IJavaScriptStackFrame extends IStackFrame {
 	 * @return the underlying source or <code>null</code>
 	 */
 	public String getSource();
+	
+	/**
+	 * Returns the {@link IVariable} for the <code>this</code> object.<br>
+	 * <br>
+	 * This method can return <code>null</code>
+	 *  
+	 * @return the <code>this</code> {@link IVariable}
+	 */
+	public IVariable getThisObject();
 }

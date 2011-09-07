@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -26,7 +26,6 @@ import org.eclipse.debug.core.model.IThread;
 import org.eclipse.osgi.util.NLS;
 import org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptBreakpoint;
 import org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptBreakpointParticipant;
-import org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptLineBreakpoint;
 import org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptLoadBreakpoint;
 import org.eclipse.wst.jsdt.debug.core.jsdi.ScriptReference;
 import org.eclipse.wst.jsdt.debug.core.jsdi.StackFrame;
@@ -34,16 +33,17 @@ import org.eclipse.wst.jsdt.debug.core.jsdi.ThreadReference;
 import org.eclipse.wst.jsdt.debug.core.jsdi.VirtualMachine;
 import org.eclipse.wst.jsdt.debug.core.jsdi.event.Event;
 import org.eclipse.wst.jsdt.debug.core.jsdi.event.EventSet;
+import org.eclipse.wst.jsdt.debug.core.jsdi.event.ResumeEvent;
 import org.eclipse.wst.jsdt.debug.core.jsdi.event.StepEvent;
 import org.eclipse.wst.jsdt.debug.core.jsdi.event.SuspendEvent;
 import org.eclipse.wst.jsdt.debug.core.jsdi.request.EventRequest;
 import org.eclipse.wst.jsdt.debug.core.jsdi.request.EventRequestManager;
+import org.eclipse.wst.jsdt.debug.core.jsdi.request.ResumeRequest;
 import org.eclipse.wst.jsdt.debug.core.jsdi.request.StepRequest;
 import org.eclipse.wst.jsdt.debug.core.jsdi.request.SuspendRequest;
 import org.eclipse.wst.jsdt.debug.core.model.IJavaScriptStackFrame;
 import org.eclipse.wst.jsdt.debug.core.model.IJavaScriptThread;
 import org.eclipse.wst.jsdt.debug.core.model.IJavaScriptValue;
-import org.eclipse.wst.jsdt.debug.internal.core.Constants;
 import org.eclipse.wst.jsdt.debug.internal.core.JavaScriptDebugPlugin;
 import org.eclipse.wst.jsdt.debug.internal.core.breakpoints.JavaScriptBreakpoint;
 import org.eclipse.wst.jsdt.debug.internal.core.breakpoints.JavaScriptExceptionBreakpoint;
@@ -104,6 +104,8 @@ public class JavaScriptThread extends JavaScriptDebugElement implements IJavaScr
 					deleteRequest(this, request);
 					request = null;
 				}
+			/*	resumeUnderlyingThread();
+				fireResumeEvent(DebugEvent.CLIENT_REQUEST);*/
 			} finally {
 				pendingstep = null;
 			}
@@ -229,6 +231,7 @@ public class JavaScriptThread extends JavaScriptDebugElement implements IJavaScr
 	private StepHandler pendingstep = null;
 	
 	private SuspendRequest suspendreq = null;
+	private ResumeRequest resumereq = null;
 
 	/**
 	 * Constructor
@@ -246,71 +249,9 @@ public class JavaScriptThread extends JavaScriptDebugElement implements IJavaScr
 		suspendreq = target.getEventRequestManager().createSuspendRequest(this.thread);
 		suspendreq.setEnabled(true);
 		addJSDIEventListener(this, suspendreq);
-	}
-
-	/**
-	 * @return the status text for the thread
-	 */
-	private synchronized String statusText() {
-		switch (state) {
-			case SUSPENDED: {
-				if (this.breakpoints.size() > 0) {
-					try {
-						JavaScriptBreakpoint breakpoint = (JavaScriptBreakpoint) breakpoints.get(0);
-						if (breakpoint instanceof JavaScriptLoadBreakpoint) {
-							String name = breakpoint.getScriptPath();
-							if (Constants.EMPTY_STRING.equals(name)) {
-								name = getSourceName();
-							}
-							return NLS.bind(ModelMessages.JSDIThread_suspended_loading_script, name);
-						}
-						if(breakpoint instanceof JavaScriptExceptionBreakpoint) {
-							return NLS.bind(ModelMessages.JavaScriptThread_suspended_on_exception, breakpoint.getMarker().getAttribute(JavaScriptExceptionBreakpoint.MESSAGE));
-						}
-						// TODO support function breakpoints here
-						if (breakpoint instanceof IJavaScriptLineBreakpoint) {
-							IJavaScriptLineBreakpoint bp = (IJavaScriptLineBreakpoint) breakpoint;
-							return NLS.bind(ModelMessages.breakpoint_at_line_location, new String[] { Integer.toString(bp.getLineNumber()), getSourceName() });
-						}
-						// TODO also need to report stopped at debugger; statement
-					} catch (CoreException ce) {
-						JavaScriptDebugPlugin.log(ce);
-					}
-				}
-				return ModelMessages.thread_suspended;
-			}
-			case RUNNING: {
-				if (pendingstep != null) {
-					return ModelMessages.thread_stepping;
-				}
-				return ModelMessages.thread_running;
-			}
-			case TERMINATED: {
-				return ModelMessages.thread_terminated;
-			}
-			case ThreadReference.THREAD_STATUS_ZOMBIE: {
-				return ModelMessages.thread_zombie;
-			}
-			default: {
-				return ModelMessages.thread_state_unknown;
-			}
-		}
-	}
-
-	/**
-	 * Returns the name of the source from the top stackframe or a default name
-	 * <code>&lt;evaluated_source&gt;</code>
-	 * 
-	 * @return the name for the source
-	 * @throws DebugException
-	 */
-	String getSourceName() throws DebugException {
-		IJavaScriptStackFrame frame = (IJavaScriptStackFrame) getTopStackFrame();
-		if (frame != null) {
-			return frame.getSourceName();
-		}
-		// all else failed say "evaluated_script"
-		return ModelMessages.JavaScriptThread_evaluated_script;
+		resumereq = target.getEventRequestManager().createResumeRequest(this.thread);
+		suspendreq.setEnabled(true);
+		addJSDIEventListener(this, resumereq);
 	}
 
 	/*
@@ -331,7 +272,7 @@ public class JavaScriptThread extends JavaScriptDebugElement implements IJavaScr
 	 * @see org.eclipse.debug.core.model.IThread#getName()
 	 */
 	public String getName() throws DebugException {
-		return NLS.bind(ModelMessages.JSDIThread_thread_title, new String[] { thread.name(), statusText() });
+		return thread.name();
 	}
 
 	/*
@@ -812,11 +753,11 @@ public class JavaScriptThread extends JavaScriptDebugElement implements IJavaScr
 	 * 
 	 * @see org.eclipse.debug.core.model.ITerminate#terminate()
 	 */
-	public synchronized void terminate() throws DebugException {
-		this.state = TERMINATED;
+	public void terminate() throws DebugException {
 		getJavaScriptDebugTarget().terminate();
 		getJavaScriptDebugTarget().getEventRequestManager().deleteEventRequest(suspendreq);
 		removeJSDIEventListener(this, suspendreq);
+		removeJSDIEventListener(this, resumereq);
 	}
 
 	/**
@@ -906,12 +847,32 @@ public class JavaScriptThread extends JavaScriptDebugElement implements IJavaScr
 	public boolean handleEvent(Event event, JavaScriptDebugTarget target, boolean suspendVote, EventSet eventSet) {
 		if(event instanceof SuspendEvent) {
 			if(canSuspend()) {
-				markSuspended();
-				fireSuspendEvent(DebugEvent.SUSPEND);
-				return true;
+				if(this.thread.equals(((SuspendEvent)event).thread())) {
+					markSuspended();
+					fireSuspendEvent(DebugEvent.UNSPECIFIED);
+					return false;
+				}
 			}
 		}
-		return false;
+		if(event instanceof ResumeEvent) {
+			if(canResume()) {
+				if(this.thread.equals(((ResumeEvent)event).thread())) {
+					if (pendingstep != null) {
+						pendingstep.abort();
+					}
+					markResumed();
+					fireResumeEvent(DebugEvent.UNSPECIFIED);
+					return false;
+				}
+			}
+			if(pendingstep != null) {
+				//we need to handle the case where a step has caused a resume and no StepEvent has been sent
+				pendingstep.abort();
+				//send an event as we have stepped to resume
+				fireResumeEvent(DebugEvent.UNSPECIFIED);
+			}
+		}
+		return true;
 	}
 
 	/* (non-Javadoc)

@@ -37,6 +37,9 @@
          <adapter
                type="org.eclipse.debug.ui.actions.IToggleBreakpointsTarget">
          </adapter>
+         <adapter
+               type="org.eclipse.debug.ui.actions.IRunToLineTarget">
+         </adapter>
       </factory>
       <factory
             adaptableType="org.eclipse.wst.jsdt.core.IFunction"
@@ -173,7 +176,7 @@
                class="org.eclipse.wst.jsdt.debug.internal.ui.breakpoints.ToggleFunctionBreakpointActionDelegate"
                enablesFor="+"
                helpContextId="toggle_function_bp_outline"
-               icon="icons/elcl16/brkp_obj.gif"
+               icon="$nl$/icons/elcl16/brkp_obj.gif"
                id="org.eclipse.wst.jsdt.debug.ui.outline.function.toggle.breakpoint.action"
                label="%toggleFunctionBreakpointAction.name"
                menubarPath="additions"
@@ -220,11 +223,73 @@
                tooltip="%openSourceObjectAction.tooltip">
          </action>
       </objectContribution>
+      <viewerContribution
+            id="org.eclipse.wst.jsdt.debug.ui.classfile.editor.actions"
+            targetID="#ClassFileEditorContext">
+         <visibility>
+            <and>
+               <objectClass
+                     name="org.eclipse.jface.text.ITextSelection">
+               </objectClass>
+               <systemProperty
+                     name="org.eclipse.wst.jsdt.debug.ui.jsdebuggerActive"
+                     value="true">
+               </systemProperty>
+            </and>
+         </visibility>
+         <action
+               class="org.eclipse.wst.jsdt.debug.internal.ui.actions.EvaluateEditorPopupAction"
+               definitionId="org.eclipse.wst.jsdt.debug.ui.evaluate.command"
+               helpContextId="evaluate_jsunit_snippet_action_context"
+               icon="$nl$/icons/elcl16/jsbook_obj.gif"
+               id="org.eclipse.wst.jsdt.debug.ui.jsunit.popup.evaluate"
+               label="%evaluateAction.label"
+               menubarPath="jsdebug"
+               tooltip="%evaluateAction.description">
+         </action>
+      </viewerContribution>
+      <viewerContribution
+            id="org.eclipse.wst.jsdt.debug.ui.jsunit.editor.actions"
+            targetID="#JavaScriptEditorContext">
+         <visibility>
+            <and>
+               <objectClass
+                     name="org.eclipse.jface.text.ITextSelection">
+               </objectClass>
+               <systemProperty
+                     name="org.eclipse.wst.jsdt.debug.ui.jsdebuggerActive"
+                     value="true">
+               </systemProperty>
+            </and>
+         </visibility>
+         <action
+               class="org.eclipse.wst.jsdt.debug.internal.ui.actions.EvaluateEditorPopupAction"
+               definitionId="org.eclipse.wst.jsdt.debug.ui.evaluate.command"
+               helpContextId="evaluate_jsunit_snippet_action_context"
+               icon="$nl$/icons/elcl16/jsbook_obj.gif"
+               id="org.eclipse.wst.jsdt.debug.ui.jsunit.popup.evaluate"
+               label="%evaluateAction.label"
+               menubarPath="jsdebug"
+               tooltip="%evaluateAction.description">
+         </action>
+         <menu
+               id="org.eclipse.wst.jsdt.debug.ui.jsdebug.cu.menu"
+               label="%javascriptMenu.name"
+               path="additions">
+            <groupMarker
+                  name="jsdebug">
+            </groupMarker>
+            <separator
+                  name="jsdebug">
+            </separator>
+         </menu>
+      </viewerContribution>
    </extension>
    <extension
          point="org.eclipse.debug.ui.debugModelPresentations">
       <debugModelPresentation
             class="org.eclipse.wst.jsdt.debug.internal.ui.JavaScriptModelPresentation"
+            detailsViewerConfiguration="org.eclipse.wst.jsdt.debug.internal.ui.display.JavaScriptDebugViewerConfiguration"
             id="org.eclipse.wst.jsdt.debug.model">
       </debugModelPresentation>
    </extension>
@@ -260,6 +325,12 @@
             schemeId="org.eclipse.ui.defaultAcceleratorConfiguration"
             sequence="M1+M2+3">
       </key>
+      <key
+            commandId="org.eclipse.wst.jsdt.debug.ui.evaluate.command"
+            contextId="org.eclipse.wst.jsdt.ui.javaEditorScope"
+            schemeId="org.eclipse.ui.defaultAcceleratorConfiguration"
+            sequence="M3+M2+E">
+      </key>
    </extension>
    <extension
          point="org.eclipse.ui.commands">
@@ -282,6 +353,13 @@
             id="org.eclipse.wst.jsdt.debug.ui.category"
             name="%commandCategory.name">
       </category>
+      <command
+            categoryId="org.eclipse.wst.jsdt.debug.ui.category"
+            description="%evaluateAction.description"
+            helpContextId="evaluate_command_help_context"
+            id="org.eclipse.wst.jsdt.debug.ui.evaluate.command"
+            name="%evaluateCommand.label">
+      </command>
    </extension>
    <extension
          point="org.eclipse.ui.viewActions">
@@ -341,6 +419,46 @@
                tooltip="%showAllScripts.tooltip">
          </action>
       </viewContribution>
+      <viewContribution
+            id="variableViewActions"
+            targetID="org.eclipse.debug.ui.VariableView">
+         <menu
+               id="org.eclipse.wst.jsdt.debug.ui.variableview.menu"
+               label="%javascriptMenu.name">
+            <groupMarker
+                  name="js">
+            </groupMarker>
+         </menu>
+         <action
+               class="org.eclipse.wst.jsdt.debug.internal.ui.actions.FunctionFilterAction"
+               helpContextId="show_functions_variable_help_context"
+               id="org.eclipse.wst.jsdt.debug.ui.variableview.show.functions"
+               label="%showFunctionVarAction.label"
+               menubarPath="org.eclipse.wst.jsdt.debug.ui.variableview.menu/js"
+               style="toggle"
+               tooltip="%showFunctionVarAction.tooltip">
+         </action>
+         <action
+               class="org.eclipse.wst.jsdt.debug.internal.ui.actions.ThisFilterAction"
+               helpContextId="show_this_variable_help_context"
+               icon="$nl$/icons/elcl16/this_var.gif"
+               id="org.eclipse.wst.jsdt.debug.ui.variableview.show.this"
+               label="%showThisVarAction.label"
+               menubarPath="org.eclipse.wst.jsdt.debug.ui.variableview.menu/js"
+               style="toggle"
+               tooltip="%showThisVarAction.tooltip">
+         </action>
+         <action
+               class="org.eclipse.wst.jsdt.debug.internal.ui.actions.ProtoFilterAction"
+               helpContextId="show_proto_variables_help_context"
+               icon="$nl$/icons/elcl16/proto_var.gif"
+               id="org.eclipse.wst.jsdt.debug.ui.variableview.show.prototypes"
+               label="%showProtoVarAction.label"
+               menubarPath="org.eclipse.wst.jsdt.debug.ui.variableview.menu/js"
+               style="toggle"
+               tooltip="%showProtoVarAction.tooltip">
+         </action>
+      </viewContribution>
    </extension>
    <extension
          point="org.eclipse.debug.ui.detailPaneFactories">
@@ -370,37 +488,6 @@
       </detailFactories>
    </extension>
    <extension
-         point="org.eclipse.debug.ui.launchShortcuts">
-      <shortcut
-            class="org.eclipse.wst.jsdt.debug.internal.ui.launching.JavaScriptLaunchShortcut"
-            description="%javascriptLaunchShortcut.description"
-            helpContextId="javasript_lanch_shortcut"
-            icon="$nl$/icons/elcl16/script.gif"
-            id="org.eclipse.wst.jsdt.debug.ui.launch.shortcut"
-            label="%javascriptLaunchShortcut.label"
-            modes="debug">
-         <configurationType
-               id="org.eclipse.wst.jsdt.debug.core.launchConfigurationType">
-         </configurationType>
-         <contextualLaunch>
-            <enablement>
-               <with
-                     variable="selection">
-                  <iterate>
-                     <and>
-                        <adapt
-                              type="org.eclipse.wst.jsdt.core.IJavaScriptElement">
-                        </adapt>
-                     </and></iterate>
-                  <count
-                        value="1">
-                  </count>
-               </with>
-            </enablement>
-         </contextualLaunch>
-      </shortcut>
-   </extension>
-   <extension
          point="org.eclipse.ui.ide.markerSupport">
       <markerTypeCategory
             name="%breakpointMarkerCategory.name">
@@ -421,4 +508,67 @@
          </markerTypeReference>
       </markerTypeCategory>
    </extension>
+   <extension
+         point="org.eclipse.core.runtime.preferences">
+      <initializer
+            class="org.eclipse.wst.jsdt.debug.internal.ui.JavaScriptDebugUIPreferenceInitializer">
+      </initializer>
+   </extension>
+   <extension
+         point="org.eclipse.ui.handlers">
+      <handler
+            class="org.eclipse.wst.jsdt.debug.internal.ui.actions.EvaluateEditorPopupAction"
+            commandId="org.eclipse.wst.jsdt.debug.ui.evaluate.command"
+            helpContextId="evaluate_command_help_context">
+      </handler>
+   </extension>
+   <extension
+         point="org.eclipse.ui.workbench.texteditor.hyperlinkDetectors">
+      <hyperlinkDetector
+            activate="true"
+            class="org.eclipse.wst.jsdt.debug.internal.ui.eval.JavaScriptHyperlinkDetector"
+            description="%hyperlinkDetector.description"
+            id="org.eclipse.wst.jsdt.debug.ui.hyperlink.detector"
+            modifierKeys="M1+M3"
+            name="%hyperlinkDetector.name"
+            targetId="org.eclipse.wst.jsdt.ui.javaCode">
+      </hyperlinkDetector>
+   </extension>
+   <extension
+         point="org.eclipse.ui.preferencePages">
+      <page
+            category="org.eclipse.wst.jsdt.ui.preferences.JavaBasePreferencePage"
+            class="org.eclipse.wst.jsdt.debug.internal.ui.preferences.JavaScriptDebugPreferencePage"
+            id="org.eclipse.wst.jsdt.debug.ui.debug.page"
+            name="%debugPrefPage.name">
+         <keywordReference
+               id="org.eclipse.wst.jsdt.debug.ui.debug.pref.page.keyword">
+         </keywordReference>
+      </page>
+   </extension>
+   <extension
+         point="org.eclipse.ui.keywords">
+      <keyword
+            id="org.eclipse.wst.jsdt.debug.ui.debug.pref.page.keyword"
+            label="%debugPrefPageKeyword.label">
+      </keyword>
+   </extension>
+   <extension
+         point="org.eclipse.wst.jsdt.ui.javaEditorTextHovers">
+      <hover
+            class="org.eclipse.wst.jsdt.debug.internal.ui.eval.JavaScriptDebugHover"
+            description="%hover.description"
+            id="org.eclipse.wst.jsdt.debug.ui.variable.value.hover"
+            label="%hover.label">
+      </hover>
+   </extension>
+   <extension
+         point="org.eclipse.ui.editors.markerUpdaters">
+      <updater
+            class="org.eclipse.wst.jsdt.debug.internal.ui.breakpoints.JavaScriptBreakpointUpdater"
+            id="org.eclipse.wst.jsdt.debug.ui.breakpoint.updater"
+            markerType="org.eclipse.wst.jsdt.debug.core.breakpoint.marker">
+      </updater>
+   </extension>
+
 </plugin>

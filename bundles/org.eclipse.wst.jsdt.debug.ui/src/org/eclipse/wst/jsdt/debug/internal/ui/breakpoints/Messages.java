@@ -27,6 +27,10 @@ public class Messages extends NLS {
 	public static String enter_condition;
 	public static String entry;
 	public static String exit;
+	public static String failed_function_bp_no_element;
+	public static String failed_function_bp_no_resource;
+	public static String failed_line_bp_no_element;
+	public static String failed_line_bp_no_resource;
 	public static String failed_to_create_function_bp;
 	public static String failed_to_create_line_bp;
 	public static String fuction;
@@ -38,6 +42,7 @@ public class Messages extends NLS {
 	public static String line_breakpoint_settings;
 	public static String line_number;
 	public static String member;
+	public static String no_editor_could_be_found;
 	public static String no_valid_location;
 	public static String script_load_bp;
 	public static String script_load_breakpoint;
@@ -47,6 +52,7 @@ public class Messages extends NLS {
 	public static String suspend_when_changed;
 	public static String suspend_when_true;
 	public static String type_name;
+	public static String type_root_could_not_be_computed;
 	static {
 		// initialize resource bundle
 		NLS.initializeMessages(BUNDLE_NAME, Messages.class);

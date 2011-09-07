@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -20,6 +20,7 @@ import org.eclipse.debug.internal.ui.viewers.update.DebugTargetEventHandler;
 import org.eclipse.wst.jsdt.debug.core.model.IJavaScriptDebugTarget;
 import org.eclipse.wst.jsdt.debug.core.model.IScriptGroup;
 import org.eclipse.wst.jsdt.debug.internal.core.model.ScriptGroup;
+import org.eclipse.wst.jsdt.debug.internal.ui.PreferencesManager;
 
 /**
  * Custom handler for JavaScript debug target model proxy events
@@ -45,6 +46,81 @@ public class JavaScriptDebugTargetEventHandler extends DebugTargetEventHandler {
 	}
 	
 	/* (non-Javadoc)
+	 * @see org.eclipse.debug.internal.ui.viewers.update.DebugTargetEventHandler#handleChange(org.eclipse.debug.core.DebugEvent)
+	 */
+	protected void handleChange(DebugEvent event) {
+		Object source = event.getSource();
+		if(source instanceof IDebugTarget) {
+			super.handleChange(event);
+		}
+		else if(source instanceof IScriptGroup) {
+			if(PreferencesManager.getManager().showLoadedScripts()) {
+				fireScriptGroupDelta((IScriptGroup) source);
+			}
+		}
+	}
+	
+	/* (non-Javadoc)
+	 * @see org.eclipse.debug.internal.ui.viewers.update.DebugTargetEventHandler#handleCreate(org.eclipse.debug.core.DebugEvent)
+	 */
+	protected void handleCreate(DebugEvent event) {
+		Object source = event.getSource();
+		if(source instanceof IDebugTarget) {
+			super.handleCreate(event);
+		}
+		else if(source instanceof IScriptGroup) {
+			if(PreferencesManager.getManager().showLoadedScripts()) {
+				fireScriptGroupDelta((IScriptGroup) source);
+			}
+		}
+	}
+	
+	/* (non-Javadoc)
+	 * @see org.eclipse.debug.internal.ui.viewers.update.DebugTargetEventHandler#handleResume(org.eclipse.debug.core.DebugEvent)
+	 */
+	protected void handleResume(DebugEvent event) {
+		Object source = event.getSource();
+		if(source instanceof IDebugTarget) {
+			super.handleResume(event);
+		}
+		else if(source instanceof IScriptGroup) {
+			if(PreferencesManager.getManager().showLoadedScripts()) {
+				fireScriptGroupDelta((IScriptGroup) source);
+			}
+		}
+	}
+	
+	/* (non-Javadoc)
+	 * @see org.eclipse.debug.internal.ui.viewers.update.DebugTargetEventHandler#handleSuspend(org.eclipse.debug.core.DebugEvent)
+	 */
+	protected void handleSuspend(DebugEvent event) {
+		Object source = event.getSource();
+		if(source instanceof IDebugTarget) {
+			super.handleSuspend(event);
+		}
+		else if(source instanceof IScriptGroup) {
+			if(PreferencesManager.getManager().showLoadedScripts()) {
+				fireScriptGroupDelta((IScriptGroup) source);
+			}
+		}
+	}
+	
+	/* (non-Javadoc)
+	 * @see org.eclipse.debug.internal.ui.viewers.update.DebugTargetEventHandler#handleTerminate(org.eclipse.debug.core.DebugEvent)
+	 */
+	protected void handleTerminate(DebugEvent event) {
+		Object source = event.getSource();
+		if(source instanceof IDebugTarget) {
+			super.handleTerminate(event);
+		}
+		else if(source instanceof IScriptGroup){
+			if(PreferencesManager.getManager().showLoadedScripts()) {
+				fireScriptGroupDelta((IScriptGroup) source);
+			}
+		}
+	}
+	
+	/* (non-Javadoc)
 	 * @see org.eclipse.debug.internal.ui.viewers.update.DebugEventHandler#handleOther(org.eclipse.debug.core.DebugEvent)
 	 */
 	protected void handleOther(DebugEvent event) {
@@ -53,7 +129,9 @@ public class JavaScriptDebugTargetEventHandler extends DebugTargetEventHandler {
 			super.handleOther(event);
 		}
 		else if(source instanceof IScriptGroup){
-			fireScriptGroupDelta((IScriptGroup) source);
+			if(PreferencesManager.getManager().showLoadedScripts()) {
+				fireScriptGroupDelta((IScriptGroup) source);
+			}
 		}
 	}
 	

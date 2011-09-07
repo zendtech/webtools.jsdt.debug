@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,8 +13,14 @@ package org.eclipse.wst.jsdt.debug.internal.core;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences.IPreferenceChangeListener;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences.PreferenceChangeEvent;
@@ -52,18 +58,43 @@ public class JavaScriptPreferencesManager implements IPreferenceChangeListener {
 	 */
 	private static JavaScriptExceptionBreakpoint allExceptions = null;
 	
+	class StartJob extends Job {
+		private boolean loads = false;
+		private boolean exceptions = false;
+		/**
+		 * Constructor
+		 */
+		public StartJob(boolean loads, boolean exceptions) {
+			super(Constants.EMPTY_STRING);
+			this.loads = loads;
+			this.exceptions = exceptions;
+		}
+		/* (non-Javadoc)
+		 * @see org.eclipse.core.runtime.jobs.Job#run(org.eclipse.core.runtime.IProgressMonitor)
+		 */
+		protected IStatus run(IProgressMonitor monitor) {
+			if(loads) {
+				allLoadsBreakpoint = createSuspendOnAllLoads();
+			}
+			if(exceptions) {
+				allExceptions = createSuspendOnException();
+			}
+			return Status.OK_STATUS;
+		}
+		
+	}
+	
 	/**
 	 * Starts the manager
 	 */
 	public void start() {
 		IEclipsePreferences node = new InstanceScope().getNode(JavaScriptDebugPlugin.PLUGIN_ID);
 		node.addPreferenceChangeListener(this);
-		if(node.getBoolean(Constants.SUSPEND_ON_ALL_SCRIPT_LOADS, false)) {
-			allLoadsBreakpoint = createSuspendOnAllLoads();
-		}
-		if(node.getBoolean(Constants.SUSPEN_ON_THROWN_EXCEPTION, false)) {
-			allExceptions = createSuspendOnException();
-		}
+		StartJob job = new StartJob(node.getBoolean(Constants.SUSPEND_ON_ALL_SCRIPT_LOADS, false), 
+				node.getBoolean(Constants.SUSPEND_ON_THROWN_EXCEPTION, true));
+		job.setSystem(true);
+		job.setPriority(Job.INTERACTIVE);
+		job.schedule();
 	}
 	
 	/**
@@ -84,6 +115,19 @@ public class JavaScriptPreferencesManager implements IPreferenceChangeListener {
 		} catch (CoreException e) {
 			JavaScriptDebugPlugin.log(e);
 		}
+		finally {
+			try {
+				//confirm they are all gone
+				//https://bugs.eclipse.org/bugs/show_bug.cgi?id=323152
+				IMarker[] markers = ResourcesPlugin.getWorkspace().getRoot().findMarkers(IJavaScriptBreakpoint.MARKER_ID, true, IResource.DEPTH_ZERO);
+				for (int i = 0; i < markers.length; i++) {
+					markers[i].delete();
+				}
+			}
+			catch(CoreException ce) {
+				JavaScriptDebugPlugin.log(ce);
+			}
+		}
 	}
 	
 	/* (non-Javadoc)
@@ -91,16 +135,19 @@ public class JavaScriptPreferencesManager implements IPreferenceChangeListener {
 	 */
 	public void preferenceChange(PreferenceChangeEvent event) {
 		if(event.getKey().equals(Constants.SUSPEND_ON_ALL_SCRIPT_LOADS)) {
-			if(event.getNewValue().equals(Boolean.TRUE.toString()) && allLoadsBreakpoint == null) {
+			Object newval = event.getNewValue();
+			if(newval != null && newval.equals(Boolean.TRUE.toString()) && allLoadsBreakpoint == null) {
 				//create it
 				allLoadsBreakpoint = createSuspendOnAllLoads();
 			}
 			else {
 				deleteSuspendOnAllLoads();
 			}
+			return;
 		}
-		if(event.getKey().equals(Constants.SUSPEN_ON_THROWN_EXCEPTION)) {
-			if(event.getNewValue().equals(Boolean.TRUE.toString())) {
+		if(event.getKey().equals(Constants.SUSPEND_ON_THROWN_EXCEPTION)) {
+			Object newval = event.getNewValue();
+			if(newval != null && newval.equals(Boolean.TRUE.toString())) {
 				//create it
 				allExceptions = createSuspendOnException();
 			}
@@ -119,6 +166,7 @@ public class JavaScriptPreferencesManager implements IPreferenceChangeListener {
 	private JavaScriptExceptionBreakpoint createSuspendOnException() {
 		try {
 			JavaScriptExceptionBreakpoint breakpoint = new JavaScriptExceptionBreakpoint(new HashMap());
+			breakpoint.setPersisted(false); // do not persist - https://bugs.eclipse.org/bugs/show_bug.cgi?id=323152
 			IDebugTarget[] targets = DebugPlugin.getDefault().getLaunchManager().getDebugTargets();
 			for (int i = 0; i < targets.length; i++) {
 				if(targets[i] instanceof JavaScriptDebugTarget) {
@@ -129,6 +177,8 @@ public class JavaScriptPreferencesManager implements IPreferenceChangeListener {
 		}
 		catch(DebugException de) {
 			JavaScriptDebugPlugin.log(de);
+		} catch (CoreException ce) {
+			JavaScriptDebugPlugin.log(ce);
 		}
 		return null;
 	}
@@ -186,29 +236,36 @@ public class JavaScriptPreferencesManager implements IPreferenceChangeListener {
 	 * @return the "suspend on all script loads" breakpoint or <code>null</code>
 	 */
 	private IJavaScriptLoadBreakpoint createSuspendOnAllLoads() {
-		IJavaScriptLoadBreakpoint breakpoint = null;
 		try {
-			HashMap map = new HashMap();
-			map.put(JavaScriptLoadBreakpoint.GLOBAL_SUSPEND, Boolean.TRUE);
-			breakpoint = JavaScriptDebugModel.createScriptLoadBreakpoint(
-												ResourcesPlugin.getWorkspace().getRoot(), 
-												-1, 
-												-1, 
-												map, 
-												false);
-		} catch (DebugException e) {
-			JavaScriptDebugPlugin.log(e);
-		}
-		if(breakpoint != null) {
-			//notify all the targets
-			IDebugTarget[] targets = DebugPlugin.getDefault().getLaunchManager().getDebugTargets();
-			for (int i = 0; i < targets.length; i++) {
-				if(targets[i] instanceof JavaScriptDebugTarget) {
-					((JavaScriptDebugTarget)targets[i]).breakpointAdded(breakpoint);
+			IJavaScriptLoadBreakpoint breakpoint = null;
+			try {
+				HashMap map = new HashMap();
+				map.put(JavaScriptLoadBreakpoint.GLOBAL_SUSPEND, Boolean.TRUE);
+				breakpoint = JavaScriptDebugModel.createScriptLoadBreakpoint(
+													ResourcesPlugin.getWorkspace().getRoot(), 
+													-1, 
+													-1, 
+													map, 
+													false);
+				breakpoint.setPersisted(false); //do not persist - https://bugs.eclipse.org/bugs/show_bug.cgi?id=323152
+			} catch (DebugException e) {
+				JavaScriptDebugPlugin.log(e);
+			}
+			if(breakpoint != null) {
+				//notify all the targets
+				IDebugTarget[] targets = DebugPlugin.getDefault().getLaunchManager().getDebugTargets();
+				for (int i = 0; i < targets.length; i++) {
+					if(targets[i] instanceof JavaScriptDebugTarget) {
+						((JavaScriptDebugTarget)targets[i]).breakpointAdded(breakpoint);
+					}
 				}
 			}
+			return breakpoint;
 		}
-		return breakpoint;
+		catch(CoreException ce) {
+			JavaScriptDebugPlugin.log(ce);
+			return null;
+		}
 	}
 	
 	/**

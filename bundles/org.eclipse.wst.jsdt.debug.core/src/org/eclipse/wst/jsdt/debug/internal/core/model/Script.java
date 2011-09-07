@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,15 +14,18 @@ import java.net.URI;
 
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.URIUtil;
+import org.eclipse.debug.core.DebugException;
+import org.eclipse.debug.core.model.ITerminate;
 import org.eclipse.wst.jsdt.debug.core.jsdi.ScriptReference;
 import org.eclipse.wst.jsdt.debug.core.model.IScript;
+import org.eclipse.wst.jsdt.debug.internal.core.Constants;
 
 /**
  * Wrapper for a {@link ScriptReference} to display it in the debug view
  * 
  * @since 1.0
  */
-public class Script extends JavaScriptDebugElement implements IScript, Comparable {
+public class Script extends JavaScriptDebugElement implements IScript, Comparable, ITerminate {
 
 	private ScriptReference script = null;
 	
@@ -70,6 +73,31 @@ public class Script extends JavaScriptDebugElement implements IScript, Comparabl
 		if(name == null) {
 			name = new Path(sourceuri.getSchemeSpecificPart()).lastSegment();
 		}
+		if(name != null && !name.toLowerCase().endsWith(Constants.JS_EXTENSION)) {
+			StringBuffer newname = new StringBuffer(name).append('.').append(Constants.JS_EXTENSION);
+			name = newname.toString();
+		}
 		return name;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.eclipse.debug.core.model.ITerminate#canTerminate()
+	 */
+	public boolean canTerminate() {
+		return getJavaScriptDebugTarget().canTerminate();
+	}
+
+	/* (non-Javadoc)
+	 * @see org.eclipse.debug.core.model.ITerminate#isTerminated()
+	 */
+	public boolean isTerminated() {
+		return getJavaScriptDebugTarget().isTerminated();
+	}
+
+	/* (non-Javadoc)
+	 * @see org.eclipse.debug.core.model.ITerminate#terminate()
+	 */
+	public void terminate() throws DebugException {
+		getJavaScriptDebugTarget().terminate();
 	}
 }
