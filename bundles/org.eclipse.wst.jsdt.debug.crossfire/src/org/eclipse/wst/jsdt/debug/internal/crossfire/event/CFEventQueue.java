@@ -101,8 +101,12 @@ public class CFEventQueue extends CFMirror implements EventQueue {
 							List suspends = eventmgr.suspendRequests();
 							for (Iterator iter = suspends.iterator(); iter.hasNext();) {
 								SuspendRequest request = (SuspendRequest) iter.next();
-								String url = (String) event.getBody().get(Attributes.URL);
-								Number line = (Number) event.getBody().get(Attributes.LINE);
+								Map locaction = (Map) event.getBody().get(Attributes.LOCATION);
+								if(locaction == null) {
+									continue;
+								}
+								String url = (String) locaction.get(Attributes.URL);
+								Number line = (Number) locaction.get(Attributes.LINE);
 								CFScriptReference script = crossfire().findScript(url);
 								if(script != null) {
 									CFLocation loc = new CFLocation(crossfire(), script, null, line.intValue());
@@ -136,6 +140,7 @@ public class CFEventQueue extends CFMirror implements EventQueue {
 									set.add(new CFResumeEvent(crossfire(), request, thread, loc));
 								}
 							}
+							thread.eventResume();
 						}
 						else {
 							return null;
@@ -169,16 +174,16 @@ public class CFEventQueue extends CFMirror implements EventQueue {
 						Tracing.writeString("QUEUE [event - "+CFEventPacket.ON_SCRIPT+"] "+JSON.serialize(event)); //$NON-NLS-1$ //$NON-NLS-2$
 					}
 				}
-				else if(CFEventPacket.ON_CONTEXT_CREATED.equals(name)) {
-					handleContext(set, event, false);
-					if(TRACE) {
-						Tracing.writeString("QUEUE [event - "+CFEventPacket.ON_CONTEXT_CREATED+"] "+JSON.serialize(event)); //$NON-NLS-1$ //$NON-NLS-2$
-					}
-				}
-				else if(CFEventPacket.ON_CONTEXT_CHANGED.equals(name)) {
+				else if(CFEventPacket.ON_CONTEXT_SELECTED.equals(name)) {
 					handleContext(set, event, true);
 					if(TRACE) {
-						Tracing.writeString("QUEUE [event - "+CFEventPacket.ON_CONTEXT_CHANGED+"] "+JSON.serialize(event)); //$NON-NLS-1$ //$NON-NLS-2$
+						Tracing.writeString("QUEUE [event - "+CFEventPacket.ON_CONTEXT_SELECTED+"] "+JSON.serialize(event)); //$NON-NLS-1$ //$NON-NLS-2$
+					}
+				}
+				else if(CFEventPacket.ON_CONTEXT_CREATED.equals(name)) {
+					handleContext(set, event, true);
+					if(TRACE) {
+						Tracing.writeString("QUEUE [event - "+CFEventPacket.ON_CONTEXT_CREATED+"] "+JSON.serialize(event)); //$NON-NLS-1$ //$NON-NLS-2$
 					}
 				}
 				else if(CFEventPacket.ON_CONTEXT_LOADED.equals(name)) {
@@ -262,35 +267,7 @@ public class CFEventQueue extends CFMirror implements EventQueue {
 					return null;
 				}
 				else if(CFEventPacket.ON_TOGGLE_BREAKPOINT.equals(name)) {
-					/*Map body = event.getBody();
-					String url = (String) body.get(Attributes.URL);
-					if(url != null) {
-						String path = JavaScriptDebugPlugin.findExternalScriptPathFromURI(url);
-						if(path != null) {
-							IFile file = (IFile) JavaScriptDebugPlugin.getExternalSourceProject(false).findMember(new Path(path));
-							if(file != null && file.isAccessible()) {
-								boolean isset = ((Boolean)body.get(Attributes.SET)).booleanValue();
-								if(!isset) {
-									
-								}
-								else {
-									int line = -1;
-									Number lineno = (Number) body.get(Attributes.LINE);
-									if(lineno != null) {
-										line = lineno.intValue();
-									}
-									if(line > -1) { 
-										Map attribs = new HashMap();
-										attribs.put(IJavaScriptBreakpoint.SCRIPT_PATH, body.get(Attributes.URL));
-										try {
-											JavaScriptDebugModel.createLineBreakpoint(file, line, -1, -1, attribs, true);
-										}
-										catch(DebugException de) {}
-									}
-								}
-							}
-						}
-					}*/
+					crossfire().toggleBreakpoint(event.getBody());
 					if(TRACE) {
 						Tracing.writeString("QUEUE [event - "+CFEventPacket.ON_TOGGLE_BREAKPOINT+"] "+JSON.serialize(event)); //$NON-NLS-1$ //$NON-NLS-2$
 					}
@@ -353,11 +330,12 @@ public class CFEventQueue extends CFMirror implements EventQueue {
 	void handleContext(CFEventSet set, CFEventPacket event, boolean lookup) {
 		List threads = eventmgr.threadEnterRequests();
 		CFThreadReference thread = null;
+		String context = event.getContextId();
 		if(lookup) {
-			thread = crossfire().findThread(event.getContextId());
+			thread = crossfire().findThread(context);
 		}
 		if(thread == null) {
-			thread = crossfire().addThread(event.getContextId(), (String) event.getBody().get(Attributes.HREF));
+			thread = crossfire().addThread(context, (String) event.getBody().get(Attributes.URL));
 		}
 		set.setThread(thread);
 		for (Iterator iter = threads.iterator(); iter.hasNext();) {

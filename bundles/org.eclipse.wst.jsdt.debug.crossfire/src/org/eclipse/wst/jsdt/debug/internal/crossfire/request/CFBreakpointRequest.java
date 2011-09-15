@@ -10,7 +10,9 @@
  *******************************************************************************/
 package org.eclipse.wst.jsdt.debug.internal.crossfire.request;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.eclipse.wst.jsdt.debug.core.jsdi.Location;
@@ -34,7 +36,7 @@ public class CFBreakpointRequest extends CFThreadEventRequest implements Breakpo
 	private String condition = null;
 	private int hitcount = 0;
 	private Location location = null;
-	private Long bpid = null;
+	private Long bpHandle = null;
 	
 	/**
 	 * Constructor
@@ -100,34 +102,46 @@ public class CFBreakpointRequest extends CFThreadEventRequest implements Breakpo
 		if(enabled) {
 			//send setbreakpoint request
 			CFScriptReference script = (CFScriptReference) location.scriptReference();
-			CFRequestPacket request = new CFRequestPacket(Commands.SET_BREAKPOINT, script.context());
-			request.setArgument(Attributes.TYPE, Attributes.LINE);
+			CFRequestPacket request = new CFRequestPacket(Commands.SET_BREAKPOINTS, null);
+			Map bp = new HashMap();
+			bp.put(Attributes.TYPE, Attributes.LINE);
 			Map loc = new HashMap();
 			loc.put(Attributes.LINE, new Integer(location.lineNumber()));
-			loc.put(Attributes.URL, script.id());
-			request.setArgument(Attributes.LOCATION, loc);
+			loc.put(Attributes.URL, script.url());
+			bp.put(Attributes.LOCATION, loc);
+			Map attribs = new HashMap();
 			if (condition != null) {
-				request.setArgument(Attributes.CONDITION, condition);	
+				attribs.put(Attributes.CONDITION, condition);	
 			}
-			request.setArgument(Attributes.ENABLED, Boolean.TRUE);
+			if (hitcount > 0) {
+				attribs.put(Attributes.HIT_COUNT, new Long(hitcount));
+			}
+			attribs.put(Attributes.ENABLED, Boolean.TRUE);
+			bp.put(Attributes.ATTRIBUTES, attribs);
+			request.setArgument(Attributes.BREAKPOINTS, Arrays.asList(new Object[] {bp}));
 			CFResponsePacket response = ((CFVirtualMachine)virtualMachine()).sendRequest(request);
 			if(response.isSuccess()) {
-				//process the response to get the id of the breakpoint
-				Map bp = (Map) response.getBody().get(Attributes.BREAKPOINT);
-				if(bp != null) {
-					Number id = (Number) bp.get(Attributes.HANDLE);
-					bpid = new Long(id.longValue());
+				//process the response to get the handle of the breakpoint
+				List list = (List)response.getBody().get(Attributes.BREAKPOINTS);
+				if (list != null && list.size() > 0) {
+					bp = (Map)list.get(0);
+					if (bp != null) {
+						Number handle = (Number) bp.get(Attributes.HANDLE);
+						bpHandle = new Long(handle.longValue());
+					}
+				}
+				else {
+					//TODO create a dummy breakpoint whose details can be filled in when an onToggleBreakpoint event is received
 				}
 			}
 		}
-		else if(bpid != null) {
-			//send clearbreakpoint request
-			CFScriptReference script = (CFScriptReference) location.scriptReference();
-			CFRequestPacket request = new CFRequestPacket(Commands.CLEAR_BREAKPOINT, script.context());
-			request.getArguments().put(Attributes.HANDLE, bpid);
+		else if(bpHandle != null) {
+			//send deletebreakpoint request
+			CFRequestPacket request = new CFRequestPacket(Commands.DELETE_BREAKPOINTS, null);
+			request.getArguments().put(Attributes.HANDLES, Arrays.asList(new Number[] {bpHandle}));
 			CFResponsePacket response = ((CFVirtualMachine)virtualMachine()).sendRequest(request);
 			if(response.isSuccess()) {
-				bpid = null;
+				bpHandle = null;
 			}
 		}
 	}

@@ -37,9 +37,11 @@ public class CFThreadReference extends CFMirror implements ThreadReference {
 	static final int RUNNING = 0;
 	static final int SUSPENDED = 1;
 	static final int TERMINATED = 2;
+	static final int EVENT_RESUME = 3;
 	
 	private String id = null;
-	private String href = null;
+	private String url = null;
+	private boolean current = false;
 	private int state = RUNNING;
 	private ArrayList frames = null;
 	private int stepkind = -1;
@@ -49,12 +51,12 @@ public class CFThreadReference extends CFMirror implements ThreadReference {
 	 * 
 	 * @param vm
 	 * @param id
-	 * @param href
+	 * @param url
 	 */
-	public CFThreadReference(VirtualMachine vm, String id, String href) {
+	public CFThreadReference(VirtualMachine vm, String id, String url) {
 		super(vm);
 		this.id = id;
-		this.href = href;
+		this.url = url;
 	}
 	
 	/**
@@ -64,11 +66,12 @@ public class CFThreadReference extends CFMirror implements ThreadReference {
 	 */
 	public CFThreadReference(VirtualMachine vm, Map json) {
 		super(vm);
-		this.id = (String) json.get(Attributes.CROSSFIRE_ID);
-		if(this.id == null) {
-			this.id = (String) json.get(Attributes.CONTEXT_ID);
+		this.id = (String) json.get(Attributes.CONTEXT_ID);
+		this.url = (String) json.get(Attributes.URL);
+		Boolean bool = (Boolean) json.get(Attributes.CURRENT);
+		if(bool != null) {
+			this.current = bool.booleanValue();
 		}
-		this.href = (String) json.get(Attributes.HREF);
 	}
 
 	/* (non-Javadoc)
@@ -92,8 +95,6 @@ public class CFThreadReference extends CFMirror implements ThreadReference {
 	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.ThreadReference#frames()
 	 */
 	public synchronized List frames() {
-		//TODO we require some way to batch retrieve the frames from a given context
-		//unless there is only ever one frame?
 		if(frames == null) {
 			CFRequestPacket request = new CFRequestPacket(Commands.BACKTRACE, id);
 			request.setArgument(Attributes.FROM_FRAME, new Integer(0));
@@ -107,7 +108,7 @@ public class CFThreadReference extends CFMirror implements ThreadReference {
 					for (int i = 0; i < frms.size(); i++) {
 						fmap = (Map) frms.get(i);
 						//XXX hack to prevent http://code.google.com/p/fbug/issues/detail?id=4203
-						if(fmap.containsKey(Attributes.SCRIPT)) {
+						if(fmap.containsKey(Attributes.URL)) {
 							frames.add(new CFStackFrame(virtualMachine(), this, fmap));
 						}
 						else if(TRACE) {
@@ -119,6 +120,9 @@ public class CFThreadReference extends CFMirror implements ThreadReference {
 			else {
 				if(TRACE) {
 					Tracing.writeString("STACKFRAME [backtrace request failed]: "+JSON.serialize(request)); //$NON-NLS-1$
+				}
+				if(frames != null) {
+					frames.clear();
 				}
 				return Collections.EMPTY_LIST;
 			}
@@ -138,27 +142,39 @@ public class CFThreadReference extends CFMirror implements ThreadReference {
 		}
 	}
 
+	/**
+	 * The thread has been resumed by an event
+	 */
+	public void eventResume() {
+		state = EVENT_RESUME;
+	}
+	
 	/* (non-Javadoc)
 	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.ThreadReference#resume()
 	 */
 	public void resume() {
 		if(isSuspended()) {
-			CFRequestPacket request = new CFRequestPacket(Commands.CONTINUE, id);
-			String step = resolveStepKind();
-			if(step != null) {
-				request.setArgument(Attributes.STEPACTION, step);
-			}
 			try {
-				CFResponsePacket response = crossfire().sendRequest(request);
-				if(response.isSuccess()) {
-					state = RUNNING;
-				}
-				else if(TRACE) {
-					Tracing.writeString("THREAD [failed continue request] "+JSON.serialize(request)); //$NON-NLS-1$
+				if(state != EVENT_RESUME) {
+					//XXX only send an request if we were not resumed by an event
+					CFRequestPacket request = new CFRequestPacket(Commands.CONTINUE, id);
+					String step = resolveStepKind();
+					if(step != null) {
+						request.setArgument(Attributes.STEPACTION, step);
+					}
+				
+					CFResponsePacket response = crossfire().sendRequest(request);
+					if(response.isSuccess()) {
+						state = RUNNING;
+					}
+					else if(TRACE) {
+						Tracing.writeString("THREAD [failed continue request] "+JSON.serialize(request)); //$NON-NLS-1$
+					}
 				}
 			}
 			finally {
 				clearFrames();
+				state = RUNNING;
 			}
 		}
 	}
@@ -227,7 +243,7 @@ public class CFThreadReference extends CFMirror implements ThreadReference {
 	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.ThreadReference#name()
 	 */
 	public String name() {
-		return NLS.bind(Messages.thread_name, new Object[] {id, href});
+		return NLS.bind(Messages.thread_name, new Object[] {id, url});
 	}
 	
 	/* (non-Javadoc)
@@ -235,7 +251,7 @@ public class CFThreadReference extends CFMirror implements ThreadReference {
 	 */
 	public String toString() {
 		StringBuffer buffer = new StringBuffer();
-		buffer.append("ThreadReference: [crossfire_id - ").append(id).append("] [href - ").append(href).append("]"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		buffer.append("ThreadReference: [contextId - ").append(id).append("] [url - ").append(url).append("]"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		return buffer.toString();
 	}
 	
@@ -249,12 +265,12 @@ public class CFThreadReference extends CFMirror implements ThreadReference {
 	}
 	
 	/**
-	 * Returns the href context for this thread
+	 * Returns the URL for this thread
 	 * 
-	 * return the href context
+	 * @return the URL
 	 */
-	public String href() {
-		return href;
+	public String url() {
+		return url;
 	}
 	
 	/**
@@ -289,5 +305,22 @@ public class CFThreadReference extends CFMirror implements ThreadReference {
 			}
 		}
 		return null;
+	}
+	
+	/**
+	 * Returns if the this thread is the current (focus) context in the browser 
+	 * 
+	 * @return <code>true</code> if this thread is the current (focus) context
+	 */
+	public boolean isCurrent() {
+		return this.current;
+	}
+	
+	/**
+	 * Allows the current (focus) status of the thread to be set
+	 * @param current the new current state
+	 */
+	public void setCurrent(boolean current) {
+		this.current = current;
 	}
 }

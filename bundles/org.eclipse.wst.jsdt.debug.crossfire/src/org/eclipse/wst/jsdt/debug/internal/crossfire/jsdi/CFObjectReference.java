@@ -78,7 +78,16 @@ public class CFObjectReference extends CFMirror implements ObjectReference {
 				name = (String)entry.getKey();
 				if(entry.getValue() instanceof Map) {
 					json = (Map) entry.getValue();
-					ref = (Number) json.get(Attributes.HANDLE);
+					Object type = json.get(Attributes.TYPE);
+					if(!(type instanceof String)) {
+						continue;
+					}
+					//hack to prevent http://code.google.com/p/fbug/issues/detail?id=4635
+					Object handle = json.get(Attributes.HANDLE);
+					if(handle != null && !(handle instanceof Number)) {
+						continue;
+					}
+					ref = (Number) handle;
 					//don't add constructor and proto to the properties heap
 					//they are requested specially
 					if(Attributes.CONSTRUCTOR.equals(name)) {
@@ -150,7 +159,7 @@ public class CFObjectReference extends CFMirror implements ObjectReference {
 	}
 
 	/* (non-Javadoc)
-	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.ObjectReference#id()
+	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.ObjectReference#handle()
 	 */
 	public Number id() {
 		return handle;

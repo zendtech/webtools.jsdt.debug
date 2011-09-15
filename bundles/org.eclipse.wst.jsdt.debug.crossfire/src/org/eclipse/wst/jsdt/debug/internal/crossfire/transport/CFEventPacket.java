@@ -73,17 +73,17 @@ public class CFEventPacket extends CFPacket implements Event {
 	 */
 	public static final String ON_TOGGLE_BREAKPOINT = "onToggleBreakpoint"; //$NON-NLS-1$
 	/**
-	 * The "onContextCreated" event kind
+	 * The "onContextSelected" event kind
 	 */
-	public static final String ON_CONTEXT_CREATED = "onContextCreated"; //$NON-NLS-1$
+	public static final String ON_CONTEXT_SELECTED = "onContextSelected"; //$NON-NLS-1$
 	/**
 	 * The "onContextDestroyed" event kind
 	 */
 	public static final String ON_CONTEXT_DESTROYED = "onContextDestroyed"; //$NON-NLS-1$
 	/**
-	 * The "onContextChanged" event kind
+	 * The "onContextCreated" event kind
 	 */
-	public static final String ON_CONTEXT_CHANGED = "onContextChanged"; //$NON-NLS-1$
+	public static final String ON_CONTEXT_CREATED = "onContextCreated"; //$NON-NLS-1$
 	/**
 	 * The "onContextLoaded" event kind
 	 */
@@ -109,16 +109,28 @@ public class CFEventPacket extends CFPacket implements Event {
 		super(json);
 		String packetEvent = (String) json.get(EVENT);
 		event = packetEvent.intern();
-		Object data = json.get(Attributes.DATA);
+		Object data = json.get(Attributes.BODY);
 		if(data instanceof Map) {
 			body.putAll((Map) data);
 		}
 		else if(data instanceof String ||
 				data instanceof List) {
-			body.put(Attributes.DATA, data);
+			body.put(Attributes.BODY, data);
 		}
+		
 	}
 
+	/* (non-Javadoc)
+	 * @see org.eclipse.wst.jsdt.debug.internal.crossfire.transport.CFPacket#getContextId()
+	 */
+	public String getContextId() {
+		String id = super.getContextId();
+		if(id == null) {
+			id = (String) body.get(Attributes.CONTEXT_ID);
+		}
+		return id;
+	}
+	
 	/* (non-Javadoc)
 	 * @see org.eclipse.wst.jsdt.debug.transport.packet.Event#getEvent()
 	 */

@@ -22,6 +22,10 @@ public interface Attributes {
 	 */
 	public static final String ARGUMENTS = "arguments"; //$NON-NLS-1$
 	/**
+	 * The "attributes" attribute
+	 */
+	public static final String ATTRIBUTES = "attributes"; //$NON-NLS-1$
+	/**
 	 * The "body" attribute
 	 */
 	public static final String BODY = "body"; //$NON-NLS-1$
@@ -37,6 +41,10 @@ public interface Attributes {
 	 * The "breakpoints" attribute
 	 */
 	public static final String BREAKPOINTS = "breakpoints"; //$NON-NLS-1$
+	/**
+	 * The code attribute for this packet
+	 */
+	public static final String CODE = "code"; //$NON-NLS-1$
 	/**
 	 * The "columnOffset" attribute
 	 */
@@ -58,17 +66,17 @@ public interface Attributes {
 	 */
 	public static final String CONTEXT_HREF = "context_href"; //$NON-NLS-1$
 	/**
-	 * The "context_id" attribute
+	 * The "contextId" attribute
 	 */
-	public static final String CONTEXT_ID = "context_id"; //$NON-NLS-1$
+	public static final String CONTEXT_ID = "contextId"; //$NON-NLS-1$
 	/**
 	 * The "contexts" attribute
 	 */
 	public static final String CONTEXTS = "contexts"; //$NON-NLS-1$
 	/**
-	 * The "crossfire_id" attribute
+	 * the "current" attribute
 	 */
-	public static final String CROSSFIRE_ID = "crossfire_id"; //$NON-NLS-1$
+	public static final String CURRENT = "current"; //$NON-NLS-1$
 	/**
 	 * The "data" attribute
 	 */
@@ -81,10 +89,6 @@ public interface Attributes {
 	 * The "expression" attribute
 	 */
 	public static final String EXPRESSION = "expression"; //$NON-NLS-1$
-	/**
-	 * The "frame" attribute
-	 */
-	public static final String FRAME = "frame"; //$NON-NLS-1$
 	/**
 	 * The "frameIndex" argument
 	 */
@@ -102,9 +106,9 @@ public interface Attributes {
 	 */
 	public static final String FROM_FRAME = "fromFrame"; //$NON-NLS-1$
 	/**
-	 * The "func" attribute
+	 * The "functionName" attribute
 	 */
-	public static final String FUNC = "func"; //$NON-NLS-1$
+	public static final String FUNCTION_NAME = "functionName"; //$NON-NLS-1$
 	/**
 	 * The type "function"
 	 */
@@ -114,17 +118,21 @@ public interface Attributes {
 	 */
 	public static final String HANDLE = "handle"; //$NON-NLS-1$
 	/**
+	 * The "handles" attribute
+	 */
+	public static final String HANDLES = "handles"; //$NON-NLS-1$
+	/**
 	 * The "handshake" attribute
 	 */
 	public static final String HANDSHAKE = "handshake"; //$NON-NLS-1$
 	/**
+	 * The "hitCount" attribute
+	 */
+	public static final String HIT_COUNT = "hitCount"; //$NON-NLS-1$
+	/**
 	 * The "href" attribute
 	 */
 	public static final String HREF = "href"; //$NON-NLS-1$
-	/**
-	 * The "id" attribute
-	 */
-	public static final String ID = "id"; //$NON-NLS-1$
 	/**
 	 * The "includeScopes" attribute
 	 */
@@ -162,6 +170,10 @@ public interface Attributes {
 	 */
 	public static final String MESSAGE = "message"; //$NON-NLS-1$
 	/**
+	 * The "newContextId" attribute
+	 */
+	public static final String NEW_CONTEXT_ID = "newContextId"; //$NON-NLS-1$
+	/**
 	 * The type "number"
 	 */
 	public static final String NUMBER = "number"; //$NON-NLS-1$
@@ -180,7 +192,7 @@ public interface Attributes {
 	/**
 	 * The "request_seq" attribute
 	 */
-	public static final String REQUEST_SEQ = "request_seq"; //$NON-NLS-1$
+	public static final String REQUEST_SEQ = "requestSeq"; //$NON-NLS-1$
 	/**
 	 * The "result" attribute
 	 */
@@ -190,13 +202,25 @@ public interface Attributes {
 	 */
 	public static final String RUNNING = "running"; //$NON-NLS-1$
 	/**
+	 * The "scope" attribute
+	 */
+	public static final String SCOPE = "scope"; //$NON-NLS-1$
+	/**
 	 * The "scopes" attribute
 	 */
 	public static final String SCOPES = "scopes"; //$NON-NLS-1$
 	/**
+	 * The "scopeIndexes" attribute
+	 */
+	public static final String SCOPE_INDEXES = "scopeIndexes"; //$NON-NLS-1$
+	/**
 	 * The "script" attribute
 	 */
 	public static final String SCRIPT = "script"; //$NON-NLS-1$
+	/**
+	 * The "scripts" attribute
+	 */
+	public static final String SCRIPTS = "scripts"; //$NON-NLS-1$
 	/**
 	 * The "seq" attribute
 	 */
@@ -214,25 +238,29 @@ public interface Attributes {
 	 */
 	public static final String SOURCE_LENGTH = "sourceLength"; //$NON-NLS-1$
 	/**
+	 * The "stacktrace" attribute
+	 */
+	public static final String STACKTRACE = "stackTrace"; //$NON-NLS-1$
+	/**
+	 * The "status" attribute
+	 */
+	public static final String STATUS = "status"; //$NON-NLS-1$
+	/**
 	 * The "stepaction" attribute
 	 */
-	public static final String STEPACTION = "stepaction"; //$NON-NLS-1$
+	public static final String STEPACTION = "stepAction"; //$NON-NLS-1$
 	/**
 	 * The type "string"
 	 */
 	public static final String STRING = "string"; //$NON-NLS-1$
 	/**
-	 * The success attribute for this packet
-	 */
-	public static final String SUCCESS = "success"; //$NON-NLS-1$
-	/**
 	 * The "this" attribute
 	 */
 	public static final String THIS = "this"; //$NON-NLS-1$
 	/**
-	 * The "toolName" attribute
+	 * the "toFrame" attribute
 	 */
-	public static final String TOOL_NAME = "toolName"; //$NON-NLS-1$
+	public static final String TO_FRAME = "toFrame"; //$NON-NLS-1$
 	/**
 	 * The "tools" attribute
 	 */
@@ -246,7 +274,15 @@ public interface Attributes {
 	 */
 	public static final String URL = "url"; //$NON-NLS-1$
 	/**
+	 * The "urls" attribute
+	 */
+	public static final String URLS = "urls"; //$NON-NLS-1$
+	/**
 	 * The "value" attribute
 	 */
 	public static final String VALUE = "value"; //$NON-NLS-1$
+	/**
+	 * The "values" attribute
+	 */
+	public static final String VALUES = "values"; //$NON-NLS-1$
 }

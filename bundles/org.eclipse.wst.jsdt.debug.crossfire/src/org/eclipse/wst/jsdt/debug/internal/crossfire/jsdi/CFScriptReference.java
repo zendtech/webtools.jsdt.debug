@@ -13,6 +13,7 @@ package org.eclipse.wst.jsdt.debug.internal.crossfire.jsdi;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -38,8 +39,7 @@ import org.eclipse.wst.jsdt.debug.internal.crossfire.transport.CFResponsePacket;
 public class CFScriptReference extends CFMirror implements ScriptReference {
 	
 	private String context_id = null;
-	private String context_href = null;
-	private String id = null;
+	private String url = null;
 	private int srclength = 0;
 	private int linecount = 0;
 	private int coloffset = 0;
@@ -58,8 +58,7 @@ public class CFScriptReference extends CFMirror implements ScriptReference {
 	public CFScriptReference(VirtualMachine vm, String context_id, Map json) {
 		super(vm);
 		this.context_id = context_id;
-		this.id = (String) json.get(Attributes.ID);
-		this.context_href = (String) json.get(Attributes.CONTEXT_HREF);
+		this.url = (String) json.get(Attributes.URL);
 		initializeScript(json);
 	}
 
@@ -133,22 +132,11 @@ public class CFScriptReference extends CFMirror implements ScriptReference {
 	}
 
 	/**
-	 * The id of the script
-	 * @return the id
+	 * The url of the script
+	 * @return the url
 	 */
-	public String id() {
-		return id;
-	}
-	
-	/**
-	 * The HTTP context of the script, if any.
-	 * <br><br>
-	 * This method can return <code>null</code>
-	 * 
-	 * @return the HTTP context of the script or null
-	 */
-	public String hrefContext() {
-		return context_href;
+	public String url() {
+		return url;
 	}
 	
 	/**
@@ -167,12 +155,15 @@ public class CFScriptReference extends CFMirror implements ScriptReference {
 	 */
 	public synchronized String source() {
 		if(source == null) {
-			CFRequestPacket request = new CFRequestPacket(Commands.SCRIPT, context_id);
+			CFRequestPacket request = new CFRequestPacket(Commands.SCRIPTS, context_id);
 			request.setArgument(Attributes.INCLUDE_SOURCE, Boolean.TRUE);
-			request.setArgument(Attributes.URL, id);
+			request.setArgument(Attributes.URLS, Arrays.asList(new String[] {url}));
 			CFResponsePacket response = crossfire().sendRequest(request);
 			if(response.isSuccess()) {
-				initializeScript((Map) response.getBody().get(Attributes.SCRIPT));
+				List list = (List)response.getBody().get(Attributes.SCRIPTS);
+				if (list != null && list.size() > 0) {
+					initializeScript((Map)list.get(0));
+				}
 			}
 			else if(TRACE) {
 				Tracing.writeString("SCRIPTREF [failed source request]: "+JSON.serialize(request)); //$NON-NLS-1$
@@ -187,11 +178,11 @@ public class CFScriptReference extends CFMirror implements ScriptReference {
 	public synchronized URI sourceURI() {
 		if(sourceuri == null) {
 			try {
-				sourceuri = URIUtil.fromString(id);
+				sourceuri = URIUtil.fromString(url);
 			}
 			catch(IllegalArgumentException iae) {
 				try {
-					sourceuri = CrossFirePlugin.fileURI(new Path(id));
+					sourceuri = CrossFirePlugin.fileURI(new Path(url));
 				} catch (URISyntaxException e) {
 					CrossFirePlugin.log(e);
 				}
@@ -209,8 +200,7 @@ public class CFScriptReference extends CFMirror implements ScriptReference {
 	public String toString() {
 		StringBuffer buffer = new StringBuffer();
 		buffer.append("ScriptReference: [context_id - ").append(context_id).append("]"); //$NON-NLS-1$ //$NON-NLS-2$
-		buffer.append(" [context_href - ").append(context_href).append("]"); //$NON-NLS-1$ //$NON-NLS-2$
-		buffer.append(" [id - ").append(id).append("]"); //$NON-NLS-1$ //$NON-NLS-2$
+		buffer.append(" [url - ").append(url).append("]"); //$NON-NLS-1$ //$NON-NLS-2$
 		buffer.append(" [srclength - ").append(srclength).append("]"); //$NON-NLS-1$ //$NON-NLS-2$
 		buffer.append(" [linecount - ").append(linecount).append("]"); //$NON-NLS-1$ //$NON-NLS-2$
 		buffer.append(" [lineoffset - ").append(lineoffset).append("]"); //$NON-NLS-1$ //$NON-NLS-2$

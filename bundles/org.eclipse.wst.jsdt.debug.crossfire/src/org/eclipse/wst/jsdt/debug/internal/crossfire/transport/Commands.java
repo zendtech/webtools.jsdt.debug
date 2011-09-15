@@ -24,25 +24,23 @@ public interface Commands {
 	/**
 	 * The "changebreakpoint" command
 	 */
-	public static final String CHANGE_BREAKPOINT = "changebreakpoint"; //$NON-NLS-1$
+	public static final String CHANGE_BREAKPOINTS = "changeBreakpoints"; //$NON-NLS-1$
 	/**
-	 * The "clearbreakpoint" command
+	 * The "deletebreakpoint" command
 	 */
-	public static final String CLEAR_BREAKPOINT = "clearbreakpoint"; //$NON-NLS-1$
+	public static final String DELETE_BREAKPOINTS = "deleteBreakpoints"; //$NON-NLS-1$
 	/**
 	 * The "continue" command
 	 */
 	public static final String CONTINUE = "continue"; //$NON-NLS-1$
 	/**
-	 * The "disableTool" command
-	 * TODO this will update to be all lower-case
+	 * The "disabletools" command
 	 */
-	public static final String DISABLE_TOOL = "disableTool"; //$NON-NLS-1$
+	public static final String DISABLE_TOOLS = "disableTools"; //$NON-NLS-1$
 	/**
-	 * The "enableTool" command
-	 * TODO this will update to be all lower-case
+	 * The "enabletools" command
 	 */
-	public static final String ENABLE_TOOL = "enableTool"; //$NON-NLS-1$
+	public static final String ENABLE_TOOLS = "enableTools"; //$NON-NLS-1$
 	/**
 	 * The "evaluate" command
 	 */
@@ -52,17 +50,13 @@ public interface Commands {
 	 */
 	public static final String FRAME = "frame"; //$NON-NLS-1$
 	/**
-	 * The "getbreakpoint" command
-	 */
-	public static final String GET_BREAKPOINT = "getbreakpoint"; //$NON-NLS-1$
-	/**
 	 * The "getbreakpoints" command
 	 */
-	public static final String GET_BREAKPOINTS = "getbreakpoints"; //$NON-NLS-1$
+	public static final String GET_BREAKPOINTS = "getBreakpoints"; //$NON-NLS-1$
 	/**
 	 * The "gettools" command
 	 */
-	public static final String GET_TOOLS = "gettools"; //$NON-NLS-1$
+	public static final String GET_TOOLS = "getTools"; //$NON-NLS-1$
 	/**
 	 * The "inspect" command
 	 */
@@ -70,23 +64,15 @@ public interface Commands {
 	/**
 	 * The "listcontexts" command
 	 */
-	public static final String LISTCONTEXTS = "listcontexts"; //$NON-NLS-1$
+	public static final String LISTCONTEXTS = "listContexts"; //$NON-NLS-1$
 	/**
 	 * The "lookup" command
 	 */
 	public static final String LOOKUP = "lookup"; //$NON-NLS-1$
 	/**
-	 * The "scope" command
-	 */
-	public static final String SCOPE = "scope"; //$NON-NLS-1$
-	/**
 	 * The "scopes" command
 	 */
 	public static final String SCOPES = "scopes"; //$NON-NLS-1$
-	/**
-	 * The "script" command
-	 */
-	public static final String SCRIPT = "script"; //$NON-NLS-1$
 	/**
 	 * The "scripts" command
 	 */
@@ -94,7 +80,7 @@ public interface Commands {
 	/**
 	 * The "setbreakpoint" command
 	 */
-	public static final String SET_BREAKPOINT = "setbreakpoint"; //$NON-NLS-1$
+	public static final String SET_BREAKPOINTS = "setBreakpoints"; //$NON-NLS-1$
 	/**
 	 * The "in" step action
 	 */
@@ -116,9 +102,9 @@ public interface Commands {
 	 */
 	public static final String SUSPEND = "suspend"; //$NON-NLS-1$
 	/** 
-	 * The "updatecontext" command
+	 * The "createcontext" command
 	 */
-	public static final String UPDATE_CONTEXT = "updatecontext"; //$NON-NLS-1$
+	public static final String CREATE_CONTEXT = "createContext"; //$NON-NLS-1$
 	/**
 	 * The "version" command
 	 */

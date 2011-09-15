@@ -10,18 +10,18 @@
  *******************************************************************************/
 package org.eclipse.wst.jsdt.debug.internal.crossfire.jsdi;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Vector;
 
 import org.eclipse.core.resources.IMarkerDelta;
 import org.eclipse.core.resources.IResource;
-import org.eclipse.core.resources.IResourceDelta;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.QualifiedName;
@@ -41,6 +41,7 @@ import org.eclipse.wst.jsdt.debug.core.jsdi.event.EventQueue;
 import org.eclipse.wst.jsdt.debug.core.jsdi.request.EventRequestManager;
 import org.eclipse.wst.jsdt.debug.core.model.JavaScriptDebugModel;
 import org.eclipse.wst.jsdt.debug.internal.core.JavaScriptDebugPlugin;
+import org.eclipse.wst.jsdt.debug.internal.core.breakpoints.JavaScriptLineBreakpoint;
 import org.eclipse.wst.jsdt.debug.internal.crossfire.Constants;
 import org.eclipse.wst.jsdt.debug.internal.crossfire.CrossFirePlugin;
 import org.eclipse.wst.jsdt.debug.internal.crossfire.Tracing;
@@ -82,25 +83,176 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 	public CFVirtualMachine(DebugSession session) {
 		super();
 		this.session = session;
-		IBreakpointManager bpManager = DebugPlugin.getDefault().getBreakpointManager();
-		bpManager.addBreakpointListener(this);
 		initializeBreakpoints();
 	}
 	
 	/**
-	 * Collects all of the breakpoints 
+	 * Synchronizes the set of breakpoints between client and server 
 	 */
 	void initializeBreakpoints() {
-		List threads = allThreads();
-		for (Iterator i = threads.iterator(); i.hasNext();) {
-			CFThreadReference thread = (CFThreadReference) i.next();
-			CFRequestPacket request = new CFRequestPacket(Commands.GET_BREAKPOINTS, thread.id());
-			CFResponsePacket response = sendRequest(request);
-			if(response.isSuccess()) {
-				//TODO sync breakpoints
+		IBreakpointManager manager = DebugPlugin.getDefault().getBreakpointManager();
+		manager.addBreakpointListener(this);
+		IBreakpoint[] managerBreakpoints = manager.getBreakpoints(JavaScriptDebugModel.MODEL_ID);
+		Vector allBps = new Vector();
+		for (int i = 0; i < managerBreakpoints.length; i++) {
+			IBreakpoint current = managerBreakpoints[i];
+			if (current instanceof JavaScriptLineBreakpoint) {
+				try {
+					JavaScriptLineBreakpoint breakpoint = (JavaScriptLineBreakpoint)current;
+
+					IResource resource = breakpoint.getMarker().getResource();
+					QualifiedName qName = new QualifiedName(JavaScriptCore.PLUGIN_ID, "scriptURL"); //$NON-NLS-1$
+					String url = resource.getPersistentProperty(qName);
+					if (url == null) {
+						String path = breakpoint.getScriptPath();
+						url = JavaScriptDebugPlugin.getExternalScriptPath(new Path(path));
+					}
+					
+					if (url != null) {
+						Map location = new HashMap();
+						location.put(Attributes.LINE, new Integer(breakpoint.getLineNumber()));
+						location.put(Attributes.URL, url);
+						Map attributes = new HashMap();
+						if (breakpoint.isConditionEnabled()) {
+							String condition = breakpoint.getCondition();
+							if (condition != null) {
+								attributes.put(Attributes.CONDITION, condition);
+							}
+						}
+						int hitCount = breakpoint.getHitCount();
+						if (hitCount != -1) {
+							attributes.put(Attributes.HIT_COUNT, new Integer(hitCount));
+						}
+						Map bpMap = new HashMap();
+						bpMap.put(Attributes.TYPE, Attributes.LINE);
+						bpMap.put(Attributes.LOCATION, location);
+						bpMap.put(Attributes.ATTRIBUTES, attributes);
+						allBps.add(bpMap);
+					}
+				} catch (CoreException e) {
+					CrossFirePlugin.log(e);
+				}				
 			}
-			else if(TRACE) {
-				Tracing.writeString("VM [failed getbreakpoints request]: "+JSON.serialize(request)); //$NON-NLS-1$
+		}
+		if (allBps.size() > 0) {
+			CFRequestPacket request = new CFRequestPacket(Commands.SET_BREAKPOINTS, null);
+			request.setArgument(Attributes.BREAKPOINTS, Arrays.asList(allBps.toArray()));
+			CFResponsePacket response = ((CFVirtualMachine)virtualMachine()).sendRequest(request);
+			if (!response.isSuccess()) {
+				if(TRACE) {
+					Tracing.writeString("VM [failed setbreakpoints request]: "+JSON.serialize(request)); //$NON-NLS-1$
+				}
+			}
+		}
+		
+		CFRequestPacket request = new CFRequestPacket(Commands.GET_BREAKPOINTS, null);
+		CFResponsePacket response = sendRequest(request);
+		if(response.isSuccess()) {
+			List list = (List) response.getBody().get(Attributes.BREAKPOINTS);
+			Map bp = null;
+			for (Iterator i = list.iterator(); i.hasNext();) {
+				bp = (Map) i.next();
+				addBreakpoint(bp);
+			}
+		}
+		else if(TRACE) {
+			Tracing.writeString("VM [failed getbreakpoints request]: "+JSON.serialize(request)); //$NON-NLS-1$
+		}
+	}
+	
+	/**
+	 * Sends the <code>getbreakpoint</code> request for the given breakpoint handle
+	 * @param handle
+	 * @return the {@link RemoteBreakpoint} representing the request or <code>null</code> if the breakpoint could not be found
+	 */
+	public RemoteBreakpoint getBreakpoint(Number handle) {
+		CFRequestPacket request = new CFRequestPacket(Commands.GET_BREAKPOINTS, null);
+		request.setArgument(Attributes.HANDLES, Arrays.asList(new Number[] {handle}));
+		CFResponsePacket response = sendRequest(request);
+		if(response.isSuccess()) {
+			List list = (List)response.getBody().get(Attributes.BREAKPOINTS);
+			if (list != null && list.size() > 0) {
+				addBreakpoint((Map)list.get(0));
+			}
+		}
+		else if(TRACE) {
+			Tracing.writeString("VM [failed getbreakpoint request]: "+JSON.serialize(request)); //$NON-NLS-1$
+		}
+		return (RemoteBreakpoint) breakpointHandles.get(handle);
+	}
+	
+	/**
+	 * Sends the <code>changebreakpoint</code> request for the given breakpoint handle to change the given map of attributes
+	 * @param handle
+	 * @param attributes
+	 * @return the changed {@link RemoteBreakpoint} object or <code>null</code> if the request failed
+	 */
+	public RemoteBreakpoint changeBreakpoint(Number handle, Map attributes) {
+		CFRequestPacket request = new CFRequestPacket(Commands.CHANGE_BREAKPOINTS, null);
+		request.setArgument(Attributes.HANDLES, Arrays.asList(new Number[] {handle}));
+		request.setArgument(Attributes.ATTRIBUTES, attributes);
+		CFResponsePacket response = sendRequest(request);
+		if(response.isSuccess()) {
+			updateBreakpoint(response.getBody());
+		}
+		else if(TRACE) {
+			Tracing.writeString("VM [failed getbreakpoint request]: "+JSON.serialize(request)); //$NON-NLS-1$
+		}
+		return (RemoteBreakpoint) breakpointHandles.get(handle);
+	}
+	
+	/**
+	 * Add the breakpoint described by the given JSON to the handles list
+	 * @param json
+	 */
+	public void addBreakpoint(Map json) {
+		if(json != null) {
+			Number handle = (Number) json.get(Attributes.HANDLE);
+			if(handle != null) {
+				RemoteBreakpoint bp = (RemoteBreakpoint) breakpointHandles.get(handle);
+				if(bp == null) {
+					bp = new RemoteBreakpoint(this, 
+						handle,
+						(Map) json.get(Attributes.LOCATION),
+						(Map) json.get(Attributes.ATTRIBUTES),
+						(String)json.get(Attributes.TYPE));
+				}
+			}
+		}
+	}
+	
+	/**
+	 * Locates the breakpoint for the handle given in the map and updates its attributes
+	 * 
+	 * @param json the JSON map, cannot be <code>null</code>
+	 */
+	public void updateBreakpoint(Map json) {
+		if(json != null) {
+			Number handle = (Number) json.get(Attributes.HANDLE);
+			if(handle != null) {
+				RemoteBreakpoint bp = (RemoteBreakpoint) breakpointHandles.get(handle);
+				if(bp != null) {
+					bp.setEnabled(RemoteBreakpoint.getEnabled(json));
+					bp.setCondition(RemoteBreakpoint.getCondition(json));
+				}
+			}
+		}
+	}
+	
+	/**
+	 * Adds or removes the breakpoint from the cache based on the <code>isset</code> attribute
+	 * 
+	 * @param json the JSON map, cannot be <code>null</code>
+	 */
+	public void toggleBreakpoint(Map json) {
+		if(json != null) {
+			Boolean isset = (Boolean)json.get(Attributes.SET);
+			if(isset != null && isset.booleanValue()) {
+				updateBreakpoint(json);
+			}
+			else {
+				Number handle = (Number) json.get(Attributes.HANDLE);
+				breakpointHandles.remove(handle);
 			}
 		}
 	}
@@ -113,36 +265,63 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 	}
 	
 	/**
-	 * Sends an <code>updatecontext</code> request for the given URL and returns the status of the request.
+	 * Sends an <code>createcontext</code> request for the given URL and returns the status of the request.
 	 * 
 	 * @param url the URL to open / update in the remote target, <code>null</code> is not accepted
 	 * @return <code>true</code> if the request was successful, <code>false</code> otherwise
 	 */
-	boolean updateContext(String url) {
+	boolean createContext(String url) {
 		if(url != null && ready()) {
-			CFRequestPacket request = new CFRequestPacket(Commands.UPDATE_CONTEXT, null);
-			request.getArguments().put(Attributes.HREF, url);
+			CFRequestPacket request = new CFRequestPacket(Commands.CREATE_CONTEXT, null);
+			request.getArguments().put(Attributes.URL, url);
 			CFResponsePacket response = sendRequest(request);
 			if(response.isSuccess()) {
 				return true;
 			}
 			else if(TRACE) {
-				Tracing.writeString("VM [failed updatecontext request]: "+JSON.serialize(request)); //$NON-NLS-1$
+				Tracing.writeString("VM [failed createcontext request]: "+JSON.serialize(request)); //$NON-NLS-1$
 			}
 		}
 		return false;
 	}
 	
 	/**
+	 * Sends the frame request
+	 * @param contextid
+	 * @param index
+	 * @param includescopes
+	 * @return
+	 */
+	CFStackFrame getFrame(String contextid, int index, boolean includescopes) {
+		if(index > -1) {
+			CFThreadReference thread = findThread(contextid);
+			if(thread != null) {
+				CFRequestPacket request = new CFRequestPacket(Commands.FRAME, thread.id());
+				request.setArgument(Attributes.INDEX, new Integer(index));
+				request.setArgument(Attributes.INCLUDE_SCOPES, new Boolean(includescopes));
+				CFResponsePacket response = sendRequest(request);
+				if(response.isSuccess()) {
+					return new CFStackFrame(this, thread, response.getBody());
+				}
+				else if(TRACE) {
+					Tracing.writeString("VM [failed frame request]: "+JSON.serialize(request)); //$NON-NLS-1$
+				}
+			}
+		}
+		return null;
+		
+	}
+	
+	/**
 	 * Sends a request to enable the tool with the given name in the remote Crossfire server
 	 * 
-	 * @param tool the name of the tool to enable, <code>null</code> is not allowed
+	 * @param tools the array of tool names to enable, <code>null</code> is not allowed
 	 * @return <code>true</code> if the server reports the tool became enabled, <code>false</code> otherwise
 	 */
-	boolean enableTool(String tool) {
-		if(tool != null && ready()) {
-			CFRequestPacket request = new CFRequestPacket(Commands.ENABLE_TOOL, null);
-			request.getArguments().put(Attributes.TOOL_NAME, tool);
+	boolean enableTools(String[] tools) {
+		if(tools != null && tools.length > 0 && ready()) {
+			CFRequestPacket request = new CFRequestPacket(Commands.ENABLE_TOOLS, null);
+			request.getArguments().put(Attributes.TOOLS, Arrays.asList(tools));
 			CFResponsePacket response = sendRequest(request);
 			if(response.isSuccess()) {
 				//TODO handle the tool being enabled
@@ -158,13 +337,13 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 	/**
 	 * Sends a request to disable the tool with the given name in the remote Crossfire server
 	 * 
-	 * @param tool the name of the tool to disable, <code>null</code> is not allowed
+	 * @param tools the array of tool names to disable, <code>null</code> is not allowed
 	 * @return <code>true</code> if the server reports the tool became disabled, <code>false</code> otherwise
 	 */
-	boolean disableTool(String tool) {
-		if(tool != null && ready()) {
-			CFRequestPacket request = new CFRequestPacket(Commands.DISABLE_TOOL, null);
-			request.getArguments().put(Attributes.TOOL_NAME, tool);
+	boolean disableTools(String[] tools) {
+		if(tools != null && tools.length > 0 && ready()) {
+			CFRequestPacket request = new CFRequestPacket(Commands.DISABLE_TOOLS, null);
+			request.getArguments().put(Attributes.TOOLS, Arrays.asList(tools));
 			CFResponsePacket response = sendRequest(request);
 			if(response.isSuccess()) {
 				//TODO handle the tool being enabled
@@ -322,14 +501,14 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 	 * Adds a thread to the listing
 	 * 
 	 * @param id
-	 * @param href
+	 * @param url
 	 * @return the new thread
 	 */
-	public CFThreadReference addThread(String id, String href) {
+	public CFThreadReference addThread(String id, String url) {
 		if(threads == null) {
 			allThreads();
 		}
-		CFThreadReference thread  = new CFThreadReference(this, id, href);
+		CFThreadReference thread  = new CFThreadReference(this, id, url);
 		threads.put(thread.id(), thread);
 		return thread;
 	}
@@ -378,13 +557,12 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 				request.setArgument(Attributes.INCLUDE_SOURCE, Boolean.FALSE);
 				CFResponsePacket response = sendRequest(request);
 				if(response.isSuccess()) {
-					List scriptz = (List) response.getBody().get(Commands.SCRIPTS);
+					List scriptz = (List) response.getBody().get(Attributes.SCRIPTS);
 					for (Iterator iter2 = scriptz.iterator(); iter2.hasNext();) {
 						Map smap = (Map) iter2.next();
-						Map scriptjson = (Map) smap.get(Attributes.SCRIPT);
-						if(scriptjson != null) {
-							CFScriptReference script = new CFScriptReference(this, thread.id(), scriptjson); 
-							scripts.put(script.id(), script);
+						if(smap != null) {
+							CFScriptReference script = new CFScriptReference(this, thread.id(), smap); 
+							scripts.put(script.url(), script);
 						}
 					}
 				}
@@ -401,12 +579,12 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 	}
 
 	/**
-	 * Returns the script with the given id or <code>null</code>
+	 * Returns the script with the given url or <code>null</code>
 	 * 
-	 * @param id
+	 * @param url
 	 * @return the thread or <code>null</code>
 	 */
-	public synchronized CFScriptReference findScript(String id) {
+	public synchronized CFScriptReference findScript(String url) {
 		if(scripts == null) {
 			allScripts();
 		}
@@ -417,12 +595,12 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 			//we do not keep the initialized collection so that any successive 
 			//calls the this method or allScripts will cause the remote target 
 			//to be asked for all of its scripts
-			script = (CFScriptReference) scripts.get(id);
+			script = (CFScriptReference) scripts.get(url);
 		}
 		//if we find we have a script id that is not cached, we should try a lookup + add in the vm
 		if(script == null) {
 			if(TRACE) {
-				Tracing.writeString("VM [failed to find script]: "+id); //$NON-NLS-1$
+				Tracing.writeString("VM [failed to find script]: "+url); //$NON-NLS-1$
 			}
 		}
 		return script;
@@ -441,7 +619,7 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 			allScripts();
 		}
 		CFScriptReference script = new CFScriptReference(this, context_id, json);
-		scripts.put(script.id(), script);
+		scripts.put(script.url(), script);
 		return script;
 	}
 	
@@ -463,15 +641,15 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 	}
 	
 	/**
-	 * Removes the script with the given id form the listing
+	 * Removes the script with the given url from the listing
 	 * 
-	 * @param id the script to remove
+	 * @param url the script to remove
 	 */
-	public void removeScript(String id) {
+	public void removeScript(String url) {
 		if(scripts != null) {
-			Object obj = scripts.remove(id);
+			Object obj = scripts.remove(url);
 			if(TRACE && obj == null) {
-				Tracing.writeString("VM [failed to remove script]: "+id); //$NON-NLS-1$
+				Tracing.writeString("VM [failed to remove script]: "+url); //$NON-NLS-1$
 			}
 		}
 	}
@@ -624,62 +802,9 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 	public void breakpointAdded(IBreakpoint breakpoint) {
 		if (JavaScriptDebugModel.MODEL_ID.equals(breakpoint.getModelIdentifier())) {
 			if (breakpoint instanceof IJavaScriptLineBreakpoint) {
-				//IJavaScriptLineBreakpoint bp = (IJavaScriptLineBreakpoint) breakpoint;
-				/*
-				 * Currently breakpoints are always set on the global context,
-				 * which is applied to subsequent loads of the breakpoint's url.
-				 */
-			//	setLineBreakpoint(bp, true);
-	
-				/* If a live script is found for this breakpoint then set it there too */
-			//	setLineBreakpoint(bp, false);
+				//TODO check handle map send request as needed
 			}
 	 	}
-	}
-
-	void setLineBreakpoint(IJavaScriptLineBreakpoint bp, boolean global) {
-		IResource resource = bp.getMarker().getResource();
-		QualifiedName qName = new QualifiedName(JavaScriptCore.PLUGIN_ID, "scriptURL"); //$NON-NLS-1$
-		try {
-			String url = resource.getPersistentProperty(qName);
-			if (url == null) {
-				String path = bp.getScriptPath();
-				url = JavaScriptDebugPlugin.getExternalScriptPath(new Path(path));
-				if (url == null) {
-					return;
-				}
-			}
-
-			String contextId = null;
-			if (!global) {
-				CFScriptReference script = findScript(url);
-				if (script == null) {
-					return;
-				}
-				contextId = script.context();
-			}
-
-			CFRequestPacket request = new CFRequestPacket(Commands.SET_BREAKPOINT, contextId);
-			request.setArgument(Attributes.TYPE, Attributes.LINE);
-			Map location = new HashMap();
-			location.put(Attributes.LINE, new Integer(bp.getLineNumber()));
-			location.put(Attributes.URL, url);
-			request.setArgument(Attributes.LOCATION, location);
-			if (bp.isConditionEnabled() && bp.getCondition() != null) {
-				request.setArgument(Attributes.CONDITION, bp.getCondition());	
-			}
-			request.setArgument(Attributes.ENABLED, bp.isEnabled() ? Boolean.TRUE : Boolean.FALSE);
-			CFResponsePacket response = sendRequest(request);
-			if (response.isSuccess()) {
-				Map bpMap = (Map)response.getBody().get(Attributes.BREAKPOINT);
-				int handle = ((BigDecimal)bpMap.get(Attributes.HANDLE)).intValue();
-				breakpointHandles.put(bp, new Integer(handle));
-			} else if(TRACE) {
-				Tracing.writeString("[failed setbreakpoint request] "+JSON.serialize(request)); //$NON-NLS-1$
-			}
-		} catch(CoreException ce) {
-			CrossFirePlugin.log(ce);
-		}
 	}
 
 	/* (non-Javadoc)
@@ -688,114 +813,19 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 	public void breakpointRemoved(IBreakpoint breakpoint, IMarkerDelta delta) {
 		if (JavaScriptDebugModel.MODEL_ID.equals(breakpoint.getModelIdentifier())) {
 			if (breakpoint instanceof IJavaScriptLineBreakpoint) {
-			//	IJavaScriptLineBreakpoint bp = (IJavaScriptLineBreakpoint) breakpoint;
-
-				/*
-				 * Currently breakpoints are always cleared from the global context,
-				 * which is applied to subsequent loads of the breakpoint's url.
-				 */
-			//	clearBreakpoint(bp, true);
-
-				/* If a live script is found for this breakpoint then clear it there too */
-			//	clearBreakpoint(bp, false);
+				//TODO check handle map send request as needed
 			}
 		}
 	}
-
-	void clearBreakpoint(IJavaScriptLineBreakpoint bp, boolean global) {
-		Integer handle = (Integer)breakpointHandles.get(bp);
-		if (handle == null) {
-			return;
-		}
-
-		try {
-			String contextId = null;
-			if (!global) {
-				IResource resource = bp.getMarker().getResource();
-				QualifiedName qName = new QualifiedName(JavaScriptCore.PLUGIN_ID, "scriptURL"); //$NON-NLS-1$
-				String url = resource.getPersistentProperty(qName);
-				if (url == null) {
-					String path = bp.getScriptPath();
-					url = JavaScriptDebugPlugin.getExternalScriptPath(new Path(path));
-					if (url == null) {
-						return;
-					}
-				}
-
-				CFScriptReference script = findScript(url);
-				if (script == null) {
-					return;
-				}
-				contextId = script.context();
-			}
-
-			CFRequestPacket request = new CFRequestPacket(Commands.CLEAR_BREAKPOINT, contextId);
-			request.setArgument(Attributes.HANDLE, handle);
-			CFResponsePacket response = sendRequest(request);
-			if (!response.isSuccess()) {
-				breakpointHandles.remove(bp);
-			} else if (TRACE) {
-				Tracing.writeString("[failed clearbreakpoint request] "+JSON.serialize(request)); //$NON-NLS-1$
-			}
-		} catch(CoreException ce) {
-			CrossFirePlugin.log(ce);
-		}
-	}			
 
 	/* (non-Javadoc)
 	 * @see org.eclipse.debug.core.IBreakpointListener#breakpointChanged(org.eclipse.debug.core.model.IBreakpoint, org.eclipse.core.resources.IMarkerDelta)
 	 */
 	public void breakpointChanged(IBreakpoint breakpoint, IMarkerDelta delta) {
-		if (delta.getKind() == IResourceDelta.CHANGED && JavaScriptDebugModel.MODEL_ID.equals(breakpoint.getModelIdentifier())) {
-		//	IJavaScriptLineBreakpoint bp = (IJavaScriptLineBreakpoint) breakpoint;
-			/*
-			 * Currently breakpoints are always changed in the global context,
-			 * which is applied to subsequent loads of the breakpoint's url.
-			 */
-		//	changeBreakpoint(bp, true);
-
-			/* If a live script is found for this breakpoint then change it there too */
-		//	changeBreakpoint(bp, false);
-		}
-	}
-
-	void changeBreakpoint(IJavaScriptLineBreakpoint bp, boolean global) {
-		Integer handle = (Integer)breakpointHandles.get(bp);
-		if (handle == null) {
-			return;
-		}
-
-		try {
-			String contextId = null;
-			if (!global) {
-				IResource resource = bp.getMarker().getResource();
-				QualifiedName qName = new QualifiedName(JavaScriptCore.PLUGIN_ID, "scriptURL"); //$NON-NLS-1$
-				String url = resource.getPersistentProperty(qName);
-				if (url == null) {
-					String path = bp.getScriptPath();
-					url = JavaScriptDebugPlugin.getExternalScriptPath(new Path(path));
-					if (url == null) {
-						return;
-					}
-				}
-
-				CFScriptReference script = findScript(url);
-				if (script == null) {
-					return;
-				}
-				contextId = script.context();
+		if (JavaScriptDebugModel.MODEL_ID.equals(breakpoint.getModelIdentifier())) {
+			if (breakpoint instanceof IJavaScriptLineBreakpoint) {
+				//TODO check handle map send request as needed
 			}
-
-			CFRequestPacket request = new CFRequestPacket(Commands.CHANGE_BREAKPOINT, contextId);
-			request.setArgument(Attributes.HANDLE, handle);
-			request.setArgument(Attributes.ENABLED, bp.isEnabled() ? Boolean.TRUE : Boolean.FALSE);
-			request.setArgument(Attributes.CONDITION, bp.isConditionEnabled() ? bp.getCondition() : null);
-			CFResponsePacket response = sendRequest(request);
-			if (!response.isSuccess() && TRACE) {
-				Tracing.writeString("[failed changebreakpoint request] "+JSON.serialize(request)); //$NON-NLS-1$
-			}
-		} catch(CoreException ce) {
-			CrossFirePlugin.log(ce);
 		}
 	}
 }
