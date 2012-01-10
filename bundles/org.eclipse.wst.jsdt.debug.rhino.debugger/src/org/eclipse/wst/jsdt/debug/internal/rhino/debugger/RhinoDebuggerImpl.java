@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2010 IBM Corporation and others All rights reserved. This
+ * Copyright (c) 2009, 2011 IBM Corporation and others All rights reserved. This
  * program and the accompanying materials are made available under the terms of
  * the Eclipse Public License v1.0 which accompanies this distribution, and is
  * available at http://www.eclipse.org/legal/epl-v10.html
@@ -22,7 +22,7 @@ import java.util.Map;
 import org.eclipse.wst.jsdt.debug.internal.rhino.transport.EventPacket;
 import org.eclipse.wst.jsdt.debug.internal.rhino.transport.JSONConstants;
 import org.eclipse.wst.jsdt.debug.internal.rhino.transport.JSONUtil;
-import org.eclipse.wst.jsdt.debug.internal.rhino.transport.TransportService;
+import org.eclipse.wst.jsdt.debug.transport.TransportService;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextFactory;
 import org.mozilla.javascript.debug.DebugFrame;
@@ -83,11 +83,12 @@ public class RhinoDebuggerImpl implements Debugger, ContextFactory.Listener {
 	 * 
 	 * @param transportService the {@link TransportService} to use for debugger communication
 	 * @param address the address to communicate on
-	 * @param startSuspended if the debugger should wait while accepting a connection. The wait time for stating suspended is not indefinite, 
+	 * @param startSuspended if the debugger should wait while accepting a connection. The wait time for stating suspended is not indefinite,
+	 * @param trace if the debugger should be in tracing mode, reporting debug statements to the console 
 	 * and is equal to 300000ms.
 	 */
-	public RhinoDebuggerImpl(TransportService transportService, String address, boolean startSuspended) {
-		sessionManager = new DebugSessionManager( transportService,  address,  startSuspended);
+	public RhinoDebuggerImpl(TransportService transportService, String address, boolean startSuspended, boolean trace) {
+		sessionManager = new DebugSessionManager( transportService,  address,  startSuspended, trace);
 	}
 
 	/*
@@ -149,8 +150,10 @@ public class RhinoDebuggerImpl implements Debugger, ContextFactory.Listener {
 				//recycle the id for a re-loaded script
 				//https://bugs.eclipse.org/bugs/show_bug.cgi?id=306832
 				id = old.getId();
-				idToScript.remove(old.getId());
-				newscript.clone(old);
+				idToScript.remove(id);
+				newscript.setId(id);
+				//clean up the cache of breakpoints
+				old.clearBreakpoints(this);
 			}
 			else {
 				//a totally new script is loaded
@@ -186,7 +189,11 @@ public class RhinoDebuggerImpl implements Debugger, ContextFactory.Listener {
 			// handle input from the Rhino Shell
 			if (sourceName.equals("<stdin>")) { //$NON-NLS-1$
 				sourceName = "stdin"; //$NON-NLS-1$
-			} else {		
+			} 
+			if(sourceName.equals("<command>")) { //$NON-NLS-1$
+				sourceName = "command"; //$NON-NLS-1$
+			}
+			else {	
 				// try to parse it as a file
 				File sourceFile = new File(sourceName);
 				if (sourceFile.exists())
@@ -483,7 +490,7 @@ public class RhinoDebuggerImpl implements Debugger, ContextFactory.Listener {
 	}
 
 	/**
-	 * Gets the thread for the thread with the given id, returns <code>null</code> if no such thread exists with the goven id
+	 * Gets the thread for the thread with the given id, returns <code>null</code> if no such thread exists with the given id
 	 * 
 	 * @param threadId
 	 * @return the thread data for the thread with the given id or <code>null</code>

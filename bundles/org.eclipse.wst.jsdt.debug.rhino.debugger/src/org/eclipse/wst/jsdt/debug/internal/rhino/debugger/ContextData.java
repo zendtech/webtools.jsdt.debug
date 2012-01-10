@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009 IBM Corporation and others All rights reserved. This
+ * Copyright (c) 2009, 2010 IBM Corporation and others All rights reserved. This
  * program and the accompanying materials are made available under the terms of
  * the Eclipse Public License v1.0 which accompanies this distribution, and is
  * available at http://www.eclipse.org/legal/epl-v10.html
@@ -274,7 +274,7 @@ public class ContextData {
 		body.put(JSONConstants.CONTEXT_ID, contextId);
 		body.put(JSONConstants.THREAD_ID, threadId);
 		body.put(JSONConstants.SCRIPT_ID, script.getId());
-		body.put(JSONConstants.LINE_NUMBER, lineNumber);
+		body.put(JSONConstants.LINE, lineNumber);
 		body.put(JSONConstants.MESSAGE, ex.getMessage());
 		return debugger.sendEvent(exceptionEvent);
 	}
@@ -299,7 +299,7 @@ public class ContextData {
 		if (functionName != null) {
 			body.put(JSONConstants.FUNCTION_NAME, functionName);
 		}
-		body.put(JSONConstants.LINE_NUMBER, lineNumber);
+		body.put(JSONConstants.LINE, lineNumber);
 		if (breakpoint != null) {
 			body.put(JSONConstants.BREAKPOINT, breakpoint.breakpointId);
 		}

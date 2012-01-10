@@ -76,9 +76,9 @@ public class ObjectReferenceImpl extends MirrorImpl implements ObjectReference {
 		super(vm);
 		this.frame = frame;
 		this.className = (String) body.get(JSONConstants.CLASS_NAME);
-		this.id = (Number) body.get(JSONConstants.HANDLE);
-		this.constructorRef = (Number) ((Map) body.get(JSONConstants.CONSTRUCTOR_FUNCTION)).get(JSONConstants.REF);
-		this.prototypeRef = (Number) ((Map) body.get(JSONConstants.PROTOTYPE_OBJECT)).get(JSONConstants.REF);
+		this.id = (Number) body.get(JSONConstants.REF);
+		this.constructorRef = (Number) body.get(JSONConstants.CONSTRUCTOR_FUNCTION);
+		this.prototypeRef = (Number) body.get(JSONConstants.PROTOTYPE_OBJECT);
 		List proplist = (List) body.get(JSONConstants.PROPERTIES);
 		if (proplist != null) {
 			this.properties = new ArrayList(proplist.size());

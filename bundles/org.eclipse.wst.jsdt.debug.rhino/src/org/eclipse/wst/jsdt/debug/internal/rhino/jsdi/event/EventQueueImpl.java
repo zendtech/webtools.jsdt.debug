@@ -32,10 +32,10 @@ import org.eclipse.wst.jsdt.debug.internal.rhino.jsdi.request.DebuggerStatementR
 import org.eclipse.wst.jsdt.debug.internal.rhino.jsdi.request.EventRequestManagerImpl;
 import org.eclipse.wst.jsdt.debug.internal.rhino.jsdi.request.StepRequestImpl;
 import org.eclipse.wst.jsdt.debug.internal.rhino.jsdi.request.SuspendRequestImpl;
-import org.eclipse.wst.jsdt.debug.internal.rhino.transport.DisconnectedException;
 import org.eclipse.wst.jsdt.debug.internal.rhino.transport.EventPacket;
 import org.eclipse.wst.jsdt.debug.internal.rhino.transport.JSONConstants;
-import org.eclipse.wst.jsdt.debug.internal.rhino.transport.TimeoutException;
+import org.eclipse.wst.jsdt.debug.transport.exception.DisconnectedException;
+import org.eclipse.wst.jsdt.debug.transport.exception.TimeoutException;
 
 /**
  * Default implementation of {@link EventQueue}
@@ -106,7 +106,7 @@ public final class EventQueueImpl extends MirrorImpl implements EventQueue {
 					Long scriptId = new Long(((Number) event.getBody().get(JSONConstants.SCRIPT_ID)).longValue());
 					ScriptReferenceImpl script = vm.getScript(scriptId);
 					if(script != null) {
-						int lineNumber = ((Number) event.getBody().get(JSONConstants.LINE_NUMBER)).intValue();
+						int lineNumber = ((Number) event.getBody().get(JSONConstants.LINE)).intValue();
 						Location location = script.lineLocation(lineNumber);
 						boolean atBreakpoint = false;
 						Number breakpointId = (Number) event.getBody().get(JSONConstants.BREAKPOINT);
@@ -163,7 +163,7 @@ public final class EventQueueImpl extends MirrorImpl implements EventQueue {
 						eventSet.setThread(thread);
 						Long scriptId = new Long(((Number) event.getBody().get(JSONConstants.SCRIPT_ID)).longValue());
 						ScriptReferenceImpl script = vm.getScript(scriptId);
-						int lineNumber = ((Number) event.getBody().get(JSONConstants.LINE_NUMBER)).intValue();
+						int lineNumber = ((Number) event.getBody().get(JSONConstants.LINE)).intValue();
 						Location location = script.lineLocation(lineNumber);
 						String message = (String) event.getBody().get(JSONConstants.MESSAGE);
 						List exceptionRequests = eventRequestManager.exceptionRequests();

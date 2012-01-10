@@ -11,6 +11,7 @@
 package org.eclipse.wst.jsdt.debug.internal.rhino.jsdi;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -21,11 +22,11 @@ import org.eclipse.wst.jsdt.debug.core.jsdi.StackFrame;
 import org.eclipse.wst.jsdt.debug.core.jsdi.Value;
 import org.eclipse.wst.jsdt.debug.core.jsdi.Variable;
 import org.eclipse.wst.jsdt.debug.internal.rhino.RhinoDebugPlugin;
-import org.eclipse.wst.jsdt.debug.internal.rhino.transport.DisconnectedException;
 import org.eclipse.wst.jsdt.debug.internal.rhino.transport.JSONConstants;
-import org.eclipse.wst.jsdt.debug.internal.rhino.transport.Request;
-import org.eclipse.wst.jsdt.debug.internal.rhino.transport.Response;
-import org.eclipse.wst.jsdt.debug.internal.rhino.transport.TimeoutException;
+import org.eclipse.wst.jsdt.debug.internal.rhino.transport.RhinoRequest;
+import org.eclipse.wst.jsdt.debug.internal.rhino.transport.RhinoResponse;
+import org.eclipse.wst.jsdt.debug.transport.exception.DisconnectedException;
+import org.eclipse.wst.jsdt.debug.transport.exception.TimeoutException;
 
 /**
  * Rhino implementation of {@link StackFrame}
@@ -76,12 +77,12 @@ public class StackFrameImpl extends MirrorImpl implements StackFrame {
 	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.StackFrame#evaluate(java.lang.String)
 	 */
 	public Value evaluate(String expression) {
-		Request request = new Request(JSONConstants.EVALUATE);
+		RhinoRequest request = new RhinoRequest(JSONConstants.EVALUATE);
 		request.getArguments().put(JSONConstants.THREAD_ID, threadId);
 		request.getArguments().put(JSONConstants.FRAME_ID, frameId);
 		request.getArguments().put(JSONConstants.EXPRESSION, expression);
 		try {
-			Response response = vm.sendRequest(request, 30000);
+			RhinoResponse response = vm.sendRequest(request, 30000);
 			return createValue(response.getBody(), true);
 		} catch (DisconnectedException e) {
 			handleException(e.getMessage(), e);
@@ -101,12 +102,12 @@ public class StackFrameImpl extends MirrorImpl implements StackFrame {
 	public Value lookupValue(Number ref) {
 		Value value = (Value) this.cache.get(ref);
 		if (value == null) {
-			Request request = new Request(JSONConstants.LOOKUP);
+			RhinoRequest request = new RhinoRequest(JSONConstants.LOOKUP);
 			request.getArguments().put(JSONConstants.THREAD_ID, threadId);
 			request.getArguments().put(JSONConstants.FRAME_ID, frameId);
-			request.getArguments().put(JSONConstants.HANDLE, ref);
+			request.getArguments().put(JSONConstants.REF, ref);
 			try {
-				Response response = vm.sendRequest(request, 30000);
+				RhinoResponse response = vm.sendRequest(request, 30000);
 				value = createValue(response.getBody(), false);
 				this.cache.put(ref, value);
 				return value;
@@ -180,6 +181,10 @@ public class StackFrameImpl extends MirrorImpl implements StackFrame {
 	 */
 	public synchronized List variables() {
 		initializeVariables();
+		if(variables == null) {
+			//return this to maintain the API contract, and to allow variable initialization happen again
+			return Collections.EMPTY_LIST;
+		}
 		return variables;
 	}
 
@@ -190,24 +195,26 @@ public class StackFrameImpl extends MirrorImpl implements StackFrame {
 		if (variables != null) {
 			return;
 		}
-		Request request = new Request(JSONConstants.LOOKUP);
+		RhinoRequest request = new RhinoRequest(JSONConstants.LOOKUP);
 		request.getArguments().put(JSONConstants.THREAD_ID, threadId);
 		request.getArguments().put(JSONConstants.FRAME_ID, frameId);
-		request.getArguments().put(JSONConstants.HANDLE, ref);
+		request.getArguments().put(JSONConstants.REF, ref);
 		try {
-			Response response = vm.sendRequest(request, 30000);
-			Map lookup = (Map) response.getBody().get(JSONConstants.LOOKUP);
-			List properties = (List) lookup.get(JSONConstants.PROPERTIES);
-			variables = new ArrayList();
-			for (Iterator iterator = properties.iterator(); iterator.hasNext();) {
-				Map property = (Map) iterator.next();
-				String name = (String) property.get(JSONConstants.NAME);
-				Number ref = (Number) property.get(JSONConstants.REF);
-				VariableImpl variable = new VariableImpl(vm, this, name, ref);
-				if (name.equals(JSONConstants.THIS))
-					thisVariable = variable;
-				else
-					variables.add(variable);
+			RhinoResponse response = vm.sendRequest(request, 30000);
+			if(response.isSuccess()) {
+				Map lookup = (Map) response.getBody().get(JSONConstants.LOOKUP);
+				List properties = (List) lookup.get(JSONConstants.PROPERTIES);
+				variables = new ArrayList();
+				for (Iterator iterator = properties.iterator(); iterator.hasNext();) {
+					Map property = (Map) iterator.next();
+					String name = (String) property.get(JSONConstants.NAME);
+					Number ref = (Number) property.get(JSONConstants.REF);
+					VariableImpl variable = new VariableImpl(vm, this, name, ref);
+					if (name.equals(JSONConstants.THIS))
+						thisVariable = variable;
+					else
+						variables.add(variable);
+				}
 			}
 		} catch (DisconnectedException e) {
 			handleException(e.getMessage(), e);

@@ -11,6 +11,7 @@ package org.eclipse.wst.jsdt.debug.internal.rhino.transport;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.eclipse.wst.jsdt.debug.transport.packet.Packet;
 
 /**
  * Abstract description of a packet for sending / receiving information to the debug client
@@ -18,22 +19,19 @@ import java.util.Map;
  *  
  *  @since 1.0
  */
-abstract public class Packet {
+abstract public class RhinoPacket implements Packet {
 
-	private static int currentSequence = 0;
-	private final int sequence;
 	private final String type;
 
 	/**
 	 * Constructor
 	 * 
-	 * @param type the type for the {@link Packet} <code>null</code> is not accepted
+	 * @param type the type for the {@link RhinoPacket} <code>null</code> is not accepted
 	 */
-	protected Packet(String type) {
+	protected RhinoPacket(String type) {
 		if(type == null) {
 			throw new IllegalArgumentException("The type for a packet cannot be null"); //$NON-NLS-1$
 		}
-		this.sequence = nextSequence();
 		this.type = type.intern();
 	}
 
@@ -42,50 +40,26 @@ abstract public class Packet {
 	 * 
 	 * @param json the pre-composed map of attributes for the packet, <code>null</code> is not accepted
 	 */
-	protected Packet(Map json) {
+	protected RhinoPacket(Map json) {
 		if(json == null) {
 			throw new IllegalArgumentException("The JSON map for a packet cannot be null"); //$NON-NLS-1$
 		}
-		Number packetSeq = (Number) json.get(JSONConstants.SEQ);
-		this.sequence = packetSeq.intValue();
 		String packetType = (String) json.get(JSONConstants.TYPE);
 		this.type = packetType.intern();
 	}
 
-	/**
-	 * @return a next value for the sequence
-	 */
-	private static synchronized int nextSequence() {
-		return ++currentSequence;
-	}
-
-	/**
-	 * @return the current sequence
-	 */
-	public int getSequence() {
-		return sequence;
-	}
-
-	/**
-	 * Returns the type of this packet.<br>
-	 * <br>
-	 * This method cannot return <code>null</code>
-	 * 
-	 * @return the type, never <code>null</code>
+	/* (non-Javadoc)
+	 * @see org.eclipse.wst.jsdt.debug.transport.packet.Packet#getType()
 	 */
 	public String getType() {
 		return type;
 	}
 
-	/**
-	 * Returns the type and sequence composed in a JSON map.<br>
-	 * <br>
-	 * This method cannot return <code>null</code>
-	 * @return the composed JSON map
+	/* (non-Javadoc)
+	 * @see org.eclipse.wst.jsdt.debug.transport.packet.Packet#toJSON()
 	 */
 	public Map toJSON() {
 		Map json = new HashMap();
-		json.put(JSONConstants.SEQ, new Integer(sequence));
 		json.put(JSONConstants.TYPE, type);
 		return json;
 	}
@@ -111,7 +85,7 @@ abstract public class Packet {
 	 */
 	public String toString() {
 		StringBuffer buffer = new StringBuffer();
-		buffer.append("Packet: ").append(JSONUtil.write(toJSON())); //$NON-NLS-1$
+		buffer.append("RhinoPacket: ").append(JSONUtil.write(toJSON())); //$NON-NLS-1$
 		return buffer.toString();
 	}
 }

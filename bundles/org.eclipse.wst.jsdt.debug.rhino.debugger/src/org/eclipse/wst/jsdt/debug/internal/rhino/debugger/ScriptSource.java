@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009 IBM Corporation and others All rights reserved. This
+ * Copyright (c) 2009, 2011 IBM Corporation and others All rights reserved. This
  * program and the accompanying materials are made available under the terms of
  * the Eclipse Public License v1.0 which accompanies this distribution, and is
  * available at http://www.eclipse.org/legal/epl-v10.html
@@ -20,6 +20,7 @@ import java.util.Map;
 import org.eclipse.wst.jsdt.debug.internal.rhino.transport.Constants;
 import org.eclipse.wst.jsdt.debug.internal.rhino.transport.JSONConstants;
 import org.mozilla.javascript.debug.DebuggableScript;
+import org.mozilla.javascript.debug.Debugger;
 
 /**
  * Rhino script implementation
@@ -176,6 +177,22 @@ public class ScriptSource {
 	}
 	
 	/**
+	 * Clears the breakpoints from this script out of the given {@link Debugger}
+	 */
+	void clearBreakpoints(RhinoDebuggerImpl debugger) {
+		if(this.lines != null) {
+			for (int i = 0; i < this.lines.length; i++) {
+				if(lines[i] != null) {
+					Breakpoint bp = lines[i].breakpoint;
+					if(bp != null) {
+						debugger.clearBreakpoint(bp.breakpointId);
+					}
+				}
+			}
+		}
+	}
+	
+	/**
 	 * Collects all of the {@link DebuggableScript} objects for the functions
 	 * @param root the root script
 	 * @return the collected array of functions - {@link DebuggableScript} - objects or an empty array
@@ -262,13 +279,13 @@ public class ScriptSource {
 		result.put(JSONConstants.SOURCE, source);
 		result.put(JSONConstants.GENERATED, Boolean.valueOf(generated));
 		if(lines != null) {
-		HashSet lineNumbers = new HashSet();
-		for (int i = 0; i < lines.length; i++) {
-			if(lines[i] != null) {
-				lineNumbers.add(new Integer(i));
+			HashSet lineNumbers = new HashSet();
+			for (int i = 0; i < lines.length; i++) {
+				if(lines[i] != null) {
+					lineNumbers.add(new Integer(i));
+				}
 			}
-		}
-		result.put(JSONConstants.LINES, (lineNumbers == null ? Collections.EMPTY_SET : lineNumbers));
+			result.put(JSONConstants.LINES, (lineNumbers == null ? Collections.EMPTY_SET : lineNumbers));
 		}
 		else {
 			result.put(JSONConstants.LINES, Collections.EMPTY_SET);
@@ -333,15 +350,6 @@ public class ScriptSource {
 			}
 		}
 		return false;
-	}
-
-	/**
-	 * Copies items from the given object to this one
-	 * @param script
-	 */
-	public void clone(ScriptSource script) {
-		this.scriptId = script.scriptId;
-		this.lines = script.lines;
 	}
 	
 	/**

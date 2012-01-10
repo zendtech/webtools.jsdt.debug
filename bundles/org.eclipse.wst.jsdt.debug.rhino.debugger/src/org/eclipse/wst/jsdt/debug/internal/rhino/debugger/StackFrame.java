@@ -274,7 +274,7 @@ public class StackFrame implements DebugFrame {
 	 */
 	public Object serialize(Long handle, Object object) {
 		Map result = new HashMap();
-		result.put(JSONConstants.HANDLE, handle);
+		result.put(JSONConstants.REF, handle);
 
 		// "undefined", "null", "boolean", "number", "string", "object", "function" or "frame"
 		if (object == Undefined.instance) {
@@ -354,8 +354,8 @@ public class StackFrame implements DebugFrame {
 		if (ScriptableObject.hasProperty(scriptable, JSONConstants.CONSTRUCTOR)) {
 			constructorFunction = ScriptableObject.getProperty(scriptable, JSONConstants.CONSTRUCTOR);
 		}
-		result.put(JSONConstants.CONSTRUCTOR_FUNCTION, createRef(constructorFunction));
-		result.put(JSONConstants.PROTOTYPE_OBJECT, createRef(scriptable.getPrototype()));
+		result.put(JSONConstants.CONSTRUCTOR_FUNCTION, createHandle(constructorFunction));
+		result.put(JSONConstants.PROTOTYPE_OBJECT, createHandle(scriptable.getPrototype()));
 		if (scriptable instanceof NativeJavaObject)
 			result.put(JSONConstants.PROPERTIES, createJavaObjectProperties((NativeJavaObject) scriptable));
 		else

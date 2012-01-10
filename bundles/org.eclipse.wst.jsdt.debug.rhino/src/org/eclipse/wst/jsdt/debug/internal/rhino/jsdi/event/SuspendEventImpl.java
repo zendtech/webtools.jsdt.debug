@@ -12,13 +12,12 @@ package org.eclipse.wst.jsdt.debug.internal.rhino.jsdi.event;
 
 import org.eclipse.wst.jsdt.debug.core.jsdi.Location;
 import org.eclipse.wst.jsdt.debug.core.jsdi.ThreadReference;
-import org.eclipse.wst.jsdt.debug.core.jsdi.event.BreakpointEvent;
 import org.eclipse.wst.jsdt.debug.core.jsdi.event.SuspendEvent;
 import org.eclipse.wst.jsdt.debug.core.jsdi.request.SuspendRequest;
 import org.eclipse.wst.jsdt.debug.internal.rhino.jsdi.VirtualMachineImpl;
 
 /**
- * Rhino implementation of {@link BreakpointEvent}
+ * Rhino implementation of {@link SuspendEvent}
  * 
  * @since 1.0
  */

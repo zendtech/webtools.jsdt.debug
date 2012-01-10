@@ -9,23 +9,21 @@
 package org.eclipse.wst.jsdt.debug.internal.rhino.debugger;
 
 import java.io.IOException;
-import java.text.DateFormat;
-import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.StringTokenizer;
 
-import org.eclipse.wst.jsdt.debug.internal.rhino.transport.Connection;
-import org.eclipse.wst.jsdt.debug.internal.rhino.transport.DebugSession;
-import org.eclipse.wst.jsdt.debug.internal.rhino.transport.DisconnectedException;
 import org.eclipse.wst.jsdt.debug.internal.rhino.transport.EventPacket;
 import org.eclipse.wst.jsdt.debug.internal.rhino.transport.JSONConstants;
-import org.eclipse.wst.jsdt.debug.internal.rhino.transport.Request;
-import org.eclipse.wst.jsdt.debug.internal.rhino.transport.Response;
-import org.eclipse.wst.jsdt.debug.internal.rhino.transport.SocketTransportService;
-import org.eclipse.wst.jsdt.debug.internal.rhino.transport.TimeoutException;
-import org.eclipse.wst.jsdt.debug.internal.rhino.transport.TransportService;
-import org.eclipse.wst.jsdt.debug.internal.rhino.transport.TransportService.ListenerKey;
+import org.eclipse.wst.jsdt.debug.internal.rhino.transport.RhinoRequest;
+import org.eclipse.wst.jsdt.debug.internal.rhino.transport.RhinoResponse;
+import org.eclipse.wst.jsdt.debug.internal.rhino.transport.RhinoTransportService;
+import org.eclipse.wst.jsdt.debug.transport.Connection;
+import org.eclipse.wst.jsdt.debug.transport.DebugSession;
+import org.eclipse.wst.jsdt.debug.transport.ListenerKey;
+import org.eclipse.wst.jsdt.debug.transport.TransportService;
+import org.eclipse.wst.jsdt.debug.transport.exception.DisconnectedException;
+import org.eclipse.wst.jsdt.debug.transport.exception.TimeoutException;
 
 /**
  * Delegate for {@link DebugSession} communication
@@ -63,13 +61,13 @@ public class DebugSessionManager {
 					}
 					while (!shutdown && connection.isOpen()) {
 						try {
-							Request request = debugSession.receiveRequest(1000);
+							RhinoRequest request = (RhinoRequest) debugSession.receive(JSONConstants.REQUEST, 1000);
 							if (DEBUG)
 								System.out.println(request);
-							Response response = requestHandler.handleRequest(request);
+							RhinoResponse response = requestHandler.handleRequest(request);
 							if (DEBUG)
 								System.out.println(response);
-							debugSession.sendResponse(response);
+							debugSession.send(response);
 						} catch (TimeoutException e) {
 							// ignore
 						} catch (DisconnectedException e) {
@@ -80,14 +78,12 @@ public class DebugSessionManager {
 				}
 			} catch (IOException e) {
 				sendDeathEvent();
-				/* e.printStackTrace(); */
 			} finally {
 				try {
 					if (listenerKey != null)
 						transportService.stopListening(listenerKey);
 				} catch (IOException e) {
 					sendDeathEvent();
-					/* e.printStackTrace(); */
 				}
 			}
 		}
@@ -120,7 +116,7 @@ public class DebugSessionManager {
 
 	}
 
-	private static final boolean DEBUG = false;
+	private static boolean DEBUG = false;
 	
 	private static final String ADDRESS = "address"; //$NON-NLS-1$
 	private static final String SOCKET = "socket"; //$NON-NLS-1$
@@ -141,11 +137,11 @@ public class DebugSessionManager {
 	 * @param address
 	 * @param startSuspended
 	 */
-	public DebugSessionManager(TransportService transportService, String address, boolean startSuspended) {
+	public DebugSessionManager(TransportService transportService, String address, boolean startSuspended, boolean debug) {
 		this.transportService = transportService;
 		this.address = address;
 		this.startSuspended = startSuspended;
-		prettyPrintHeader();
+		DEBUG = debug;
 	}
 
 	/**
@@ -160,14 +156,19 @@ public class DebugSessionManager {
 		if (!SOCKET.equals(transport)) {
 			throw new IllegalArgumentException("Transport service must be 'socket': " + transport); //$NON-NLS-1$
 		}
-		TransportService parsedTransportService = new SocketTransportService();
+		TransportService parsedTransportService = new RhinoTransportService();
 		String parsedAddress = (String) config.get(ADDRESS);
 		String suspend = (String) config.get(JSONConstants.SUSPEND);
 		boolean parsedStartSuspended = false;
 		if (suspend != null) {
 			parsedStartSuspended = (Boolean.valueOf(suspend).booleanValue() || suspend.trim().equalsIgnoreCase("y")); //$NON-NLS-1$
 		}
-		return new DebugSessionManager(parsedTransportService, parsedAddress, parsedStartSuspended);
+		String debug = (String) config.get("trace"); //$NON-NLS-1$
+		boolean debugging = false;
+		if(debug != null) {
+			debugging = (Boolean.valueOf(debug).booleanValue() || debug.trim().equalsIgnoreCase("y")); //$NON-NLS-1$
+		}
+		return new DebugSessionManager(parsedTransportService, parsedAddress, parsedStartSuspended, debugging);
 	}
 
 	/**
@@ -188,39 +189,6 @@ public class DebugSessionManager {
 				config.put(token.substring(0, equalsIndex), token.substring(equalsIndex + 1));
 		}
 		return config;
-	}
-
-	/**
-	 * Pretty print the header for the debugger
-	 * 
-	 * @since 1.1
-	 */
-	private void prettyPrintHeader() {
-		StringBuffer buffer = new StringBuffer();
-		buffer.append("Rhino attaching debugger\n"); //$NON-NLS-1$
-		buffer.append("Start at time: ").append(getStartAtDate()); //$NON-NLS-1$
-		buffer.append("\nListening to "); //$NON-NLS-1$
-		buffer.append(this.transportService instanceof SocketTransportService ? "socket on " : "transport service on "); //$NON-NLS-1$ //$NON-NLS-2$
-		buffer.append("port: ").append(this.address); //$NON-NLS-1$
-		if (startSuspended) {
-			buffer.append("\nStarted suspended - waiting for client resume..."); //$NON-NLS-1$
-		}
-		System.out.println(buffer.toString());
-	}
-
-	/**
-	 * Returns the formatted date
-	 * 
-	 * @return the formatted date
-	 * @see http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4981314
-	 * @since 1.1
-	 */
-	String getStartAtDate() {
-		try {
-			return DateFormat.getDateTimeInstance(DateFormat.LONG, DateFormat.LONG).format(Calendar.getInstance().getTime());
-		} catch (Throwable t) {
-			return "<unknown>"; //$NON-NLS-1$
-		}
 	}
 
 	/**
@@ -246,7 +214,7 @@ public class DebugSessionManager {
 	 * Starts the debugger
 	 */
 	public synchronized void start(RhinoDebuggerImpl debugger) {
-		debuggerThread = new DebugSessionThread("RhinoDebugger - Request Handler", debugger); //$NON-NLS-1$
+		debuggerThread = new DebugSessionThread("RhinoDebugger - RhinoRequest Handler", debugger); //$NON-NLS-1$
 		debuggerThread.start();
 		if (startSuspended) {
 			try {
@@ -266,8 +234,9 @@ public class DebugSessionManager {
 		shutdown = true;
 		try {
 			debuggerThread.interrupt();
-			if (debuggerThread.isAlive())
-				wait();
+			while(debuggerThread.isAlive()) {
+				wait(1000);
+			}
 			debuggerThread.join();
 		} catch (InterruptedException e) {
 			/* e.printStackTrace(); */
@@ -294,9 +263,10 @@ public class DebugSessionManager {
 	public synchronized boolean sendEvent(EventPacket event) {
 		try {
 			if (debugSession != null) {
-				if (DEBUG)
+				if (DEBUG) {
 					System.out.println(event);
-				debugSession.sendEvent(event);
+				}
+				debugSession.send(event);
 				return true;
 			}
 		} catch (DisconnectedException e) {

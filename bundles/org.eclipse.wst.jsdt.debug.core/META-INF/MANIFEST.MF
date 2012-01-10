@@ -2,13 +2,11 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: %bundleName.name
 Bundle-SymbolicName: org.eclipse.wst.jsdt.debug.core;singleton:=true
-Bundle-Version: 1.1.0.qualifier
+Bundle-Version: 1.1.1.qualifier
 Bundle-Activator: org.eclipse.wst.jsdt.debug.internal.core.JavaScriptDebugPlugin
-Bundle-Vendor: %bundleVendor.name
+Bundle-Vendor: %providerName
 Require-Bundle: org.eclipse.core.runtime,
- org.eclipse.debug.core,
- org.eclipse.wst.jsdt.core,
- org.eclipse.text
+ org.eclipse.debug.core
 Bundle-RequiredExecutionEnvironment: J2SE-1.4
 Bundle-ActivationPolicy: lazy
 Export-Package: org.eclipse.wst.jsdt.debug.core.breakpoints,
@@ -18,6 +16,10 @@ Export-Package: org.eclipse.wst.jsdt.debug.core.breakpoints,
  org.eclipse.wst.jsdt.debug.core.jsdi.request,
  org.eclipse.wst.jsdt.debug.core.model,
  org.eclipse.wst.jsdt.debug.internal.core;x-friends:="org.eclipse.wst.jsdt.debug.ui",
- org.eclipse.wst.jsdt.debug.internal.core.breakpoints;x-internal:=true,
- org.eclipse.wst.jsdt.debug.internal.core.launching;x-friends:="org.eclipse.wst.jsdt.debug.ui",
- org.eclipse.wst.jsdt.debug.internal.core.model;x-friends:="org.eclipse.wst.jsdt.debug.ui"
+ org.eclipse.wst.jsdt.debug.internal.core.breakpoints;x-friends:="org.eclipse.wst.jsdt.debug.ui",
+ org.eclipse.wst.jsdt.debug.internal.core.launching;x-friends:="org.eclipse.wst.jsdt.debug.ui,org.eclipse.wst.jsdt.debug.rhino.ui",
+ org.eclipse.wst.jsdt.debug.internal.core.model;x-friends:="org.eclipse.wst.jsdt.debug.ui,org.eclipse.wst.jsdt.debug.rhino.ui"
+Import-Package: org.eclipse.jface.text,
+ org.eclipse.text.edits,
+ org.eclipse.wst.jsdt.core,
+ org.eclipse.wst.jsdt.core.formatter
