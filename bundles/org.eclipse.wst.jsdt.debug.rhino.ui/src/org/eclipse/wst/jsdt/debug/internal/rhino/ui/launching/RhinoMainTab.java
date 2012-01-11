@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -64,7 +64,7 @@ public class RhinoMainTab extends AbstractLaunchConfigurationTab {
 	/**
 	 * The id of the tab
 	 * <br><br>
-	 * Value is: <code>thino.main.tab</code>
+	 * Value is: <code>rhino.main.tab</code>
 	 */
 	public static final String TAB_ID = "rhino.main.tab"; //$NON-NLS-1$
 	public static final String[] VERSIONS = {"100", "110", "120", "130", "140", "150", "160", "170"}; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$
@@ -126,6 +126,10 @@ public class RhinoMainTab extends AbstractLaunchConfigurationTab {
 		PlatformUI.getWorkbench().getHelpSystem().setHelp(comp, IHelpConstants.MAIN_TAB_CONTEXT);
 		setControl(comp);
 	}
+	
+	public String getHelpContextId() {
+		return IHelpConstants.MAIN_TAB_CONTEXT;
+	};
 	
 	/**
 	 * Allows users to select a script from either a project context, if there is one or the workspace

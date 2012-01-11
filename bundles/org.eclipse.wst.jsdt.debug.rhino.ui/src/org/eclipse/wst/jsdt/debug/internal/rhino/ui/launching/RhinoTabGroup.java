@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,7 +15,6 @@ import org.eclipse.debug.ui.CommonTab;
 import org.eclipse.debug.ui.ILaunchConfigurationDialog;
 import org.eclipse.debug.ui.ILaunchConfigurationTab;
 import org.eclipse.debug.ui.sourcelookup.SourceLookupTab;
-import org.eclipse.wst.jsdt.debug.internal.rhino.ui.IHelpConstants;
 
 /**
  * Rhino specific tab group
@@ -35,9 +34,7 @@ public class RhinoTabGroup extends AbstractLaunchConfigurationTabGroup {
 	 */
 	public void createTabs(ILaunchConfigurationDialog dialog, String mode) {
 		SourceLookupTab stab = new SourceLookupTab();
-		stab.setHelpContextId(IHelpConstants.SOURCE_TAB_CONTEXT);
 		CommonTab ctab = new CommonTab();
-		ctab.setHelpContextId(IHelpConstants.COMMON_TAB_CONTEXT);
 		setTabs(new ILaunchConfigurationTab[] {
 					new RhinoMainTab(),
 					new IncludeTab(),
@@ -45,5 +42,7 @@ public class RhinoTabGroup extends AbstractLaunchConfigurationTabGroup {
 					ctab
 				}
 		);
+//		PlatformUI.getWorkbench().getHelpSystem().setHelp(stab.getControl(),IHelpConstants.SOURCE_TAB_CONTEXT);
+//		PlatformUI.getWorkbench().getHelpSystem().setHelp(ctab.getControl(),IHelpConstants.COMMON_TAB_CONTEXT);
 	}
 }

@@ -10,6 +10,7 @@
  *******************************************************************************/
 package org.eclipse.wst.jsdt.debug.internal.core.breakpoints;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Map;
 
@@ -19,11 +20,13 @@ import org.eclipse.core.resources.IWorkspaceRunnable;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.Path;
 import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.model.IBreakpoint;
 import org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptBreakpointParticipant;
 import org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptLoadBreakpoint;
 import org.eclipse.wst.jsdt.debug.core.jsdi.ScriptReference;
+import org.eclipse.wst.jsdt.debug.core.jsdi.VirtualMachine;
 import org.eclipse.wst.jsdt.debug.core.jsdi.event.Event;
 import org.eclipse.wst.jsdt.debug.core.jsdi.event.EventSet;
 import org.eclipse.wst.jsdt.debug.core.jsdi.event.ScriptLoadEvent;
@@ -101,6 +104,9 @@ public class JavaScriptLoadBreakpoint extends JavaScriptLineBreakpoint implement
 			JavaScriptThread thread = target.findThread((sevent).thread());
 			if (thread != null) {
 				if(isGlobalLoadSuspend()) {
+					if(!supportsGlobalSuspend(target.getVM())) {
+						return true;
+					}
 					JavaScriptPreferencesManager.setGlobalSuspendOn(script.sourceURI().toString());
 					thread.addBreakpoint(this);
 					return false;
@@ -124,7 +130,7 @@ public class JavaScriptLoadBreakpoint extends JavaScriptLineBreakpoint implement
 	 */
 	private boolean isMatchedScriptLoadSuspend(ScriptReference script, JavaScriptThread thread, boolean suspendVote) {
 		try {
-			if (scriptPathMatches(script)) {
+			if (JavaScriptDebugPlugin.getResolutionManager().matches(script, new Path(getScriptPath()))) {
 				int vote = thread.suspendForScriptLoad(this, script, suspendVote);
 				return (vote & IJavaScriptBreakpointParticipant.SUSPEND) > 0 || vote == IJavaScriptBreakpointParticipant.DONT_CARE;
 			}
@@ -133,6 +139,26 @@ public class JavaScriptLoadBreakpoint extends JavaScriptLineBreakpoint implement
 			JavaScriptDebugPlugin.log(ce);
 		}
 		return false;
+	}
+	
+	/**
+	 * Use reflection hack to opt-out of global suspend
+	 * 
+	 * @param vm
+	 * @return <code>true</code> if the backing {@link VirtualMachine} supports global suspend
+	 */
+	boolean supportsGlobalSuspend(VirtualMachine vm) {
+		boolean supports = true;
+		try {
+			//TODO consider supportsSuspendOnScriptLoads for future VirtualMachine extensions
+			Method m = vm.getClass().getMethod("supportsSuspendOnScriptLoads", new Class[0]); //$NON-NLS-1$
+			Boolean b = (Boolean) m.invoke(vm, null);
+			supports = b.booleanValue();
+		} catch (Exception e) {
+			//assume the method is not there / problematic
+			supports = true;
+		}
+		return supports;
 	}
 	
 	/**

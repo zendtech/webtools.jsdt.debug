@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2011 IBM Corporation and others.
+ * Copyright (c) 2010, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -27,6 +27,7 @@ import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.wst.jsdt.debug.internal.core.launching.ConnectorsManager;
 import org.eclipse.wst.jsdt.debug.internal.core.model.BreakpointParticipantManager;
+import org.eclipse.wst.jsdt.debug.internal.core.model.ScriptResolutionManager;
 import org.osgi.framework.BundleContext;
 
 /**
@@ -64,6 +65,10 @@ public class JavaScriptDebugPlugin extends Plugin {
 	 */
 	private static JavaScriptPreferencesManager prefmanager = null;
 	/**
+	 * Singleton {@link ScriptResolutionManager}
+	 */
+	private static ScriptResolutionManager resolutionmanager = null;
+	/**
 	 * Handle to the 'External JavaScript Source' project
 	 */
 	private static IProject extSrcProject = null;
@@ -91,6 +96,18 @@ public class JavaScriptDebugPlugin extends Plugin {
 			participantmanager = new BreakpointParticipantManager();
 		}
 		return participantmanager;
+	}
+	
+	/**
+	 * Returns the singleton {@link ScriptResolutionManager}
+	 * @return the {@link ScriptResolutionManager}
+	 * @since 3.4
+	 */
+	public static synchronized ScriptResolutionManager getResolutionManager() {
+		if(resolutionmanager == null) {
+			resolutionmanager = new ScriptResolutionManager();
+		}
+		return resolutionmanager;
 	}
 	
 	/**
@@ -130,7 +147,7 @@ public class JavaScriptDebugPlugin extends Plugin {
 	 * @return <code>true</code> if the path is in the external source project, <code>false</code> otherwise
 	 */
 	public static boolean isExternalSource(IPath path) {
-		if(path.segment(0).equals(Messages.external_javascript_source)) {
+		if(Messages.external_javascript_source.equals(path.segment(0))) {
 			return true;
 		}
 		//try to look it up. The name might not have the project name in it

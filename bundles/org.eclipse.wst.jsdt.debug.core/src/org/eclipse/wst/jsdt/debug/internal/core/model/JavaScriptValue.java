@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -46,6 +46,8 @@ import org.eclipse.wst.jsdt.debug.internal.core.JavaScriptDebugPlugin;
  */
 public class JavaScriptValue extends JavaScriptDebugElement implements IJavaScriptValue {
 
+	public static final IVariable[] NO_VARIABLES = new IVariable[0];
+	
 	/**
 	 * the '[proto]' value
 	 */
@@ -206,7 +208,7 @@ public class JavaScriptValue extends JavaScriptDebugElement implements IJavaScri
 	 */
 	public synchronized IVariable[] getVariables() throws DebugException {
 		if (!hasVariables()) {
-			return null;
+			return NO_VARIABLES;
 		}
 		if (this.properties == null) {
 			final ObjectReference reference = (ObjectReference) this.value;

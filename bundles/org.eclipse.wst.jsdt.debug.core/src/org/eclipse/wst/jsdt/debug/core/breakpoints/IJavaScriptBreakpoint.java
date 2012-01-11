@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -26,7 +26,6 @@ public interface IJavaScriptBreakpoint extends IBreakpoint {
 	 * The id of the root breakpoint marker type for JavaScript breakpoints
 	 * <br><br>
 	 * Value is: <code>org.eclipse.wst.jsdt.debug.core.breakpoint.marker</code>
-	 * @since 1.1
 	 */
 	public static final String MARKER_ID = "org.eclipse.wst.jsdt.debug.core.breakpoint.marker"; //$NON-NLS-1$
 	/**

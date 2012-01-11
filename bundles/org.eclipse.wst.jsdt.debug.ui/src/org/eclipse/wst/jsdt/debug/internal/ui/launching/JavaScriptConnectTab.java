@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -154,10 +154,17 @@ public class JavaScriptConnectTab extends AbstractLaunchConfigurationTab impleme
 		
 		this.argumentsgroup = SWTFactory.createGroup(comp, Messages.connector_properties, 2, 1, GridData.FILL_HORIZONTAL);
 		this.argumentsgroup.setVisible(false);
-		setControl(comp);
 		PlatformUI.getWorkbench().getHelpSystem().setHelp(comp, IHelpContextIds.CONNECT_TAB);
+		setControl(comp);
 	}
 
+	/* (non-Javadoc)
+	 * @see org.eclipse.debug.ui.AbstractLaunchConfigurationTab#getHelpContextId()
+	 */
+	public String getHelpContextId() {
+		return IHelpContextIds.CONNECT_TAB;
+	};
+	
 	/**
 	 * Returns the {@link Connector} based on the selection of the combo
 	 * @return the selected combo
@@ -275,6 +282,27 @@ public class JavaScriptConnectTab extends AbstractLaunchConfigurationTab impleme
 					setErrorMessage(NLS.bind(Messages.the_argument_0_is_not_valid, new String[] {arg.name()})); 
 					return false;
 				}		
+			}
+			else if (editor instanceof BooleanFieldEditor) {
+		        boolean value = ((BooleanFieldEditor)editor).getBooleanValue();
+		        if (!arg.isValid(String.valueOf(value))) {
+		          setErrorMessage(NLS.bind(Messages.the_argument_0_is_not_valid, new String[] {arg.name()})); 
+		          return false;
+		        }   
+		    }
+			else if (editor instanceof IntegerFieldEditor) {
+		        int value = ((IntegerFieldEditor)editor).getIntValue();
+		        if (!arg.isValid(String.valueOf(value))) {
+		          setErrorMessage(NLS.bind(Messages.the_argument_0_is_not_valid, new String[] {arg.name()})); 
+		          return false;
+		        }   
+		    }
+			else if(editor instanceof ComboFieldEditor) {
+				editor.store();
+				if (!arg.isValid(editor.getPreferenceStore().getString(key))) {
+		          setErrorMessage(NLS.bind(Messages.the_argument_0_is_not_valid, new String[] {arg.name()})); 
+		          return false;
+		        }  
 			}
 		}		
 		return true;

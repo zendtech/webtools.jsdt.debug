@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -31,10 +31,12 @@ public final class TextUtils {
 	 */
 	public static String shortenText(String string, int threshold) {
 		int length = string.length(); 
-		if(length > threshold) {
+		if (length > threshold) {
 			int chomp = length - threshold + 3;
 			int begin = Math.round(threshold/2)-1;
-			return string.replaceAll(string.substring(begin, begin+chomp), "..."); //$NON-NLS-1$
+			StringBuffer buff = new StringBuffer();
+			buff.append(string.substring(0, begin)).append("...").append(string.substring(begin+chomp)); //$NON-NLS-1$
+			return buff.toString();
 		}
 		return string;
 	}
