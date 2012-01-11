@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others All rights reserved. This
+ * Copyright (c) 2010, 2011 IBM Corporation and others All rights reserved. This
  * program and the accompanying materials are made available under the terms of
  * the Eclipse Public License v1.0 which accompanies this distribution, and is
  * available at http://www.eclipse.org/legal/epl-v10.html
@@ -60,6 +60,10 @@ public class CFEventPacket extends CFPacket implements Event {
 	 * The "onConsoleWarn" event kind
 	 */
 	public static final String ON_CONSOLE_WARN = "onConsoleWarn"; //$NON-NLS-1$
+	/**
+	 * The "onError" event kind
+	 */
+	public static final String ON_ERROR = "onError"; //$NON-NLS-1$
 	/**
 	 * The "onInspectNode" event kind
 	 */

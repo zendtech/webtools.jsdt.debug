@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010 IBM Corporation and others.
+ * Copyright (c) 2010, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -78,16 +78,7 @@ public class CFObjectReference extends CFMirror implements ObjectReference {
 				name = (String)entry.getKey();
 				if(entry.getValue() instanceof Map) {
 					json = (Map) entry.getValue();
-					Object type = json.get(Attributes.TYPE);
-					if(!(type instanceof String)) {
-						continue;
-					}
-					//hack to prevent http://code.google.com/p/fbug/issues/detail?id=4635
-					Object handle = json.get(Attributes.HANDLE);
-					if(handle != null && !(handle instanceof Number)) {
-						continue;
-					}
-					ref = (Number) handle;
+					ref = (Number) json.get(Attributes.HANDLE);
 					//don't add constructor and proto to the properties heap
 					//they are requested specially
 					if(Attributes.CONSTRUCTOR.equals(name)) {
