@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2011 IBM Corporation and others.
+ * Copyright (c) 2010, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -20,20 +20,19 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Vector;
 
-import org.eclipse.core.resources.IMarkerDelta;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.QualifiedName;
 import org.eclipse.debug.core.DebugPlugin;
-import org.eclipse.debug.core.IBreakpointListener;
 import org.eclipse.debug.core.IBreakpointManager;
 import org.eclipse.debug.core.model.IBreakpoint;
 import org.eclipse.wst.jsdt.core.JavaScriptCore;
-import org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptLineBreakpoint;
+import org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptBreakpoint;
 import org.eclipse.wst.jsdt.debug.core.jsdi.BooleanValue;
 import org.eclipse.wst.jsdt.debug.core.jsdi.NullValue;
 import org.eclipse.wst.jsdt.debug.core.jsdi.NumberValue;
+import org.eclipse.wst.jsdt.debug.core.jsdi.ScriptReference;
 import org.eclipse.wst.jsdt.debug.core.jsdi.StringValue;
 import org.eclipse.wst.jsdt.debug.core.jsdi.UndefinedValue;
 import org.eclipse.wst.jsdt.debug.core.jsdi.VirtualMachine;
@@ -61,7 +60,7 @@ import org.eclipse.wst.jsdt.debug.transport.exception.TimeoutException;
  * 
  * @since 1.0
  */
-public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreakpointListener {
+public class CFVirtualMachine extends CFMirror implements VirtualMachine {
 
 	private final NullValue nullvalue = new CFNullValue(this);
 	private final UndefinedValue undefinedvalue = new CFUndefinedValue(this);
@@ -73,7 +72,6 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 	
 	private Map threads = null;
 	private Map scripts = null;
-	private Map breakpointHandles = new HashMap();
 	
 	/**
 	 * Constructor
@@ -91,15 +89,16 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 	 */
 	void initializeBreakpoints() {
 		IBreakpointManager manager = DebugPlugin.getDefault().getBreakpointManager();
-		manager.addBreakpointListener(this);
 		IBreakpoint[] managerBreakpoints = manager.getBreakpoints(JavaScriptDebugModel.MODEL_ID);
 		Vector allBps = new Vector();
 		for (int i = 0; i < managerBreakpoints.length; i++) {
 			IBreakpoint current = managerBreakpoints[i];
-			if (current instanceof JavaScriptLineBreakpoint) {
-				try {
+			try {
+				if(!current.isRegistered()) {
+					continue;
+				}
+				if (current instanceof JavaScriptLineBreakpoint) {
 					JavaScriptLineBreakpoint breakpoint = (JavaScriptLineBreakpoint)current;
-
 					IResource resource = breakpoint.getMarker().getResource();
 					QualifiedName qName = new QualifiedName(JavaScriptCore.PLUGIN_ID, "scriptURL"); //$NON-NLS-1$
 					String url = resource.getPersistentProperty(qName);
@@ -119,6 +118,7 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 								attributes.put(Attributes.CONDITION, condition);
 							}
 						}
+						attributes.put(Attributes.ENABLED, new Boolean(breakpoint.isEnabled()));
 						int hitCount = breakpoint.getHitCount();
 						if (hitCount != -1) {
 							attributes.put(Attributes.HIT_COUNT, new Integer(hitCount));
@@ -129,19 +129,29 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 						bpMap.put(Attributes.ATTRIBUTES, attributes);
 						allBps.add(bpMap);
 					}
-				} catch (CoreException e) {
-					CrossFirePlugin.log(e);
-				}				
+				}
+			} catch (CoreException e) {
+				CrossFirePlugin.log(e);
 			}
 		}
 		if (allBps.size() > 0) {
 			CFRequestPacket request = new CFRequestPacket(Commands.SET_BREAKPOINTS, null);
 			request.setArgument(Attributes.BREAKPOINTS, Arrays.asList(allBps.toArray()));
 			CFResponsePacket response = ((CFVirtualMachine)virtualMachine()).sendRequest(request);
-			if (!response.isSuccess()) {
-				if(TRACE) {
-					Tracing.writeString("VM [failed setbreakpoints request]: "+JSON.serialize(request)); //$NON-NLS-1$
+			if (response.isSuccess()) {
+				List list = (List)response.getBody().get(Attributes.BREAKPOINTS);
+				if (list != null && list.size() > 0) {
+					for (Iterator i = list.iterator(); i.hasNext();) {
+						Map bp = (Map)i.next();
+						if (bp != null) {
+							RemoteBreakpoint rb = BreakpointTracker.addBreakpoint((CFVirtualMachine) virtualMachine(), bp);
+							BreakpointTracker.findLocalBreakpoint(rb);
+						}
+					}
 				}
+			}
+			else if(TRACE) {
+				Tracing.writeString("VM [failed setbreakpoints request]: "+JSON.serialize(request)); //$NON-NLS-1$
 			}
 		}
 		
@@ -152,53 +162,12 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 			Map bp = null;
 			for (Iterator i = list.iterator(); i.hasNext();) {
 				bp = (Map) i.next();
-				addBreakpoint(bp);
+				BreakpointTracker.addBreakpoint(this, bp);
 			}
 		}
 		else if(TRACE) {
 			Tracing.writeString("VM [failed getbreakpoints request]: "+JSON.serialize(request)); //$NON-NLS-1$
 		}
-	}
-	
-	/**
-	 * Sends the <code>getbreakpoint</code> request for the given breakpoint handle
-	 * @param handle
-	 * @return the {@link RemoteBreakpoint} representing the request or <code>null</code> if the breakpoint could not be found
-	 */
-	public RemoteBreakpoint getBreakpoint(Number handle) {
-		CFRequestPacket request = new CFRequestPacket(Commands.GET_BREAKPOINTS, null);
-		request.setArgument(Attributes.HANDLES, Arrays.asList(new Number[] {handle}));
-		CFResponsePacket response = sendRequest(request);
-		if(response.isSuccess()) {
-			List list = (List)response.getBody().get(Attributes.BREAKPOINTS);
-			if (list != null && list.size() > 0) {
-				addBreakpoint((Map)list.get(0));
-			}
-		}
-		else if(TRACE) {
-			Tracing.writeString("VM [failed getbreakpoint request]: "+JSON.serialize(request)); //$NON-NLS-1$
-		}
-		return (RemoteBreakpoint) breakpointHandles.get(handle);
-	}
-	
-	/**
-	 * Sends the <code>changebreakpoint</code> request for the given breakpoint handle to change the given map of attributes
-	 * @param handle
-	 * @param attributes
-	 * @return the changed {@link RemoteBreakpoint} object or <code>null</code> if the request failed
-	 */
-	public RemoteBreakpoint changeBreakpoint(Number handle, Map attributes) {
-		CFRequestPacket request = new CFRequestPacket(Commands.CHANGE_BREAKPOINTS, null);
-		request.setArgument(Attributes.HANDLES, Arrays.asList(new Number[] {handle}));
-		request.setArgument(Attributes.ATTRIBUTES, attributes);
-		CFResponsePacket response = sendRequest(request);
-		if(response.isSuccess()) {
-			updateBreakpoint(response.getBody());
-		}
-		else if(TRACE) {
-			Tracing.writeString("VM [failed getbreakpoint request]: "+JSON.serialize(request)); //$NON-NLS-1$
-		}
-		return (RemoteBreakpoint) breakpointHandles.get(handle);
 	}
 	
 	/**
@@ -210,44 +179,6 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 	}
 	
 	/**
-	 * Add the breakpoint described by the given JSON to the handles list
-	 * @param json
-	 */
-	public void addBreakpoint(Map json) {
-		if(json != null) {
-			Number handle = (Number) json.get(Attributes.HANDLE);
-			if(handle != null) {
-				RemoteBreakpoint bp = (RemoteBreakpoint) breakpointHandles.get(handle);
-				if(bp == null) {
-					bp = new RemoteBreakpoint(this, 
-						handle,
-						(Map) json.get(Attributes.LOCATION),
-						(Map) json.get(Attributes.ATTRIBUTES),
-						(String)json.get(Attributes.TYPE));
-				}
-			}
-		}
-	}
-	
-	/**
-	 * Locates the breakpoint for the handle given in the map and updates its attributes
-	 * 
-	 * @param json the JSON map, cannot be <code>null</code>
-	 */
-	public void updateBreakpoint(Map json) {
-		if(json != null) {
-			Number handle = (Number) json.get(Attributes.HANDLE);
-			if(handle != null) {
-				RemoteBreakpoint bp = (RemoteBreakpoint) breakpointHandles.get(handle);
-				if(bp != null) {
-					bp.setEnabled(RemoteBreakpoint.getEnabled(json));
-					bp.setCondition(RemoteBreakpoint.getCondition(json));
-				}
-			}
-		}
-	}
-	
-	/**
 	 * Adds or removes the breakpoint from the cache based on the <code>isset</code> attribute
 	 * 
 	 * @param json the JSON map, cannot be <code>null</code>
@@ -256,11 +187,16 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 		if(json != null) {
 			Boolean isset = (Boolean)json.get(Attributes.SET);
 			if(isset != null && isset.booleanValue()) {
-				updateBreakpoint(json);
-			}
+				Map bp = (Map) json.get(Attributes.BREAKPOINT);
+				RemoteBreakpoint rb = BreakpointTracker.updateBreakpoint(bp);
+				if(rb == null) {
+					BreakpointTracker.createLocalBreakpoint(this, bp);
+				}
+ 			}
 			else {
-				Number handle = (Number) json.get(Attributes.HANDLE);
-				breakpointHandles.remove(handle);
+				Map bp = (Map) json.get(Attributes.BREAKPOINT);
+				Number handle = (Number) bp.get(Attributes.HANDLE);
+				BreakpointTracker.removeLocalBreakpoint(this, handle);
 			}
 		}
 	}
@@ -354,7 +290,7 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 			request.getArguments().put(Attributes.TOOLS, Arrays.asList(tools));
 			CFResponsePacket response = sendRequest(request);
 			if(response.isSuccess()) {
-				//TODO handle the tool being enabled
+				//TODO handle the tool being disabled
 				return true;
 			}
 			else if(TRACE) {
@@ -587,10 +523,10 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 	}
 
 	/**
-	 * Returns the script with the given url or <code>null</code>
+	 * Returns the {@link ScriptReference} with the given URL or <code>null</code>
 	 * 
 	 * @param url
-	 * @return the thread or <code>null</code>
+	 * @return the {@link ScriptReference} or <code>null</code>
 	 */
 	public synchronized CFScriptReference findScript(String url) {
 		if(scripts == null) {
@@ -605,7 +541,7 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 			//to be asked for all of its scripts
 			script = (CFScriptReference) scripts.get(url);
 		}
-		//if we find we have a script id that is not cached, we should try a lookup + add in the vm
+		//if we find we have a script id that is not cached, we should try a lookup + add in the VM
 		if(script == null) {
 			if(TRACE) {
 				Tracing.writeString("VM [failed to find script]: "+url); //$NON-NLS-1$
@@ -649,7 +585,7 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 	}
 	
 	/**
-	 * Removes the script with the given url from the listing
+	 * Removes the script with the given URL from the listing
 	 * 
 	 * @param url the script to remove
 	 */
@@ -798,41 +734,40 @@ public class CFVirtualMachine extends CFMirror implements VirtualMachine, IBreak
 			this.queue.dispose();
 			this.ermanager.dispose();
 			this.session.dispose();
+			BreakpointTracker.disconnect(this);
 		} finally {
 			disconnected = true;
-			DebugPlugin.getDefault().getBreakpointManager().removeBreakpointListener(this);
 		}
 	}
 
 	/* (non-Javadoc)
-	 * @see org.eclipse.debug.core.IBreakpointListener#breakpointAdded(org.eclipse.debug.core.model.IBreakpoint)
+	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.VirtualMachine#canUpdateBreakpoints()
 	 */
-	public void breakpointAdded(IBreakpoint breakpoint) {
-		if (JavaScriptDebugModel.MODEL_ID.equals(breakpoint.getModelIdentifier())) {
-			if (breakpoint instanceof IJavaScriptLineBreakpoint) {
-				//TODO check handle map send request as needed
-			}
-	 	}
+	public boolean canUpdateBreakpoints() {
+		return true;
 	}
 
 	/* (non-Javadoc)
-	 * @see org.eclipse.debug.core.IBreakpointListener#breakpointRemoved(org.eclipse.debug.core.model.IBreakpoint, org.eclipse.core.resources.IMarkerDelta)
+	 * @see org.eclipse.wst.jsdt.debug.core.jsdi.VirtualMachine#updateBreakpoint(org.eclipse.wst.jsdt.debug.core.breakpoints.IJavaScriptBreakpoint)
 	 */
-	public void breakpointRemoved(IBreakpoint breakpoint, IMarkerDelta delta) {
-		if (JavaScriptDebugModel.MODEL_ID.equals(breakpoint.getModelIdentifier())) {
-			if (breakpoint instanceof IJavaScriptLineBreakpoint) {
-				//TODO check handle map send request as needed
+	public void updateBreakpoint(IJavaScriptBreakpoint breakpoint) {
+		RemoteBreakpoint rb = BreakpointTracker.findRemoteBreakpoint(breakpoint);
+		if(rb != null) {
+			try {
+				BreakpointTracker.syncRemoteBreakpoint(rb, breakpoint);
+				CFRequestPacket request = new CFRequestPacket(Commands.CHANGE_BREAKPOINT, null);
+				request.setArgument(Attributes.HANDLE, rb.getHandle());
+				HashMap attributes = new HashMap();
+				attributes.put(Attributes.ENABLED, Boolean.valueOf(rb.isEnabled()));
+				attributes.put(Attributes.CONDITION, rb.getCondition());
+				request.setArgument(Attributes.ATTRIBUTES, attributes);
+				CFResponsePacket response = sendRequest(request);
+				if(!response.isSuccess() && TRACE) {
+					Tracing.writeString("VM [failed changebreakpoint request]: "+JSON.serialize(request)); //$NON-NLS-1$
+				}
 			}
-		}
-	}
-
-	/* (non-Javadoc)
-	 * @see org.eclipse.debug.core.IBreakpointListener#breakpointChanged(org.eclipse.debug.core.model.IBreakpoint, org.eclipse.core.resources.IMarkerDelta)
-	 */
-	public void breakpointChanged(IBreakpoint breakpoint, IMarkerDelta delta) {
-		if (JavaScriptDebugModel.MODEL_ID.equals(breakpoint.getModelIdentifier())) {
-			if (breakpoint instanceof IJavaScriptLineBreakpoint) {
-				//TODO check handle map send request as needed
+			catch(CoreException ce) {
+				//if we could not sync do not send a request
 			}
 		}
 	}
