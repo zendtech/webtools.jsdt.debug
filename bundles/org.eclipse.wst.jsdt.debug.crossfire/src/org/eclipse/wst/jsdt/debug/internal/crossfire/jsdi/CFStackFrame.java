@@ -13,7 +13,6 @@ package org.eclipse.wst.jsdt.debug.internal.crossfire.jsdi;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -113,8 +112,8 @@ public class CFStackFrame extends CFMirror implements StackFrame {
 			else {
 				vars = new ArrayList();
 			}
-			Map thismap = (Map) json.get(Attributes.THIS); 
-			thisvar = new CFVariable(crossfire(), this, Attributes.THIS, null, (thismap == null ? new HashMap(0) : thismap));
+			Map thismap = (Map) json.get(CFObjectReference.THIS);
+			thisvar = new CFVariable(crossfire(), this, CFObjectReference.THIS, null, thismap);
 		}
 	}
 	
@@ -127,31 +126,11 @@ public class CFStackFrame extends CFMirror implements StackFrame {
 				Object o = info.get(Attributes.HANDLE);
 				//if handle is not a Number check for that
 				//hack to prevent http://code.google.com/p/fbug/issues/detail?id=4635
+				Number ref = null;
 				if(o instanceof Number) {
-					varcollector.add(
-							new CFVariable(
-									crossfire(), 
-									this, 
-									(String) entry.getKey(), 
-									(Number) o, 
-									info));
+					ref = (Number) o;
 				}
-				//not an initialized object, try to see if the map has a type (or not null)
-				o = info.get(Attributes.TYPE);
-				if(o instanceof String) {
-					if("undefined".equals(o)) { //$NON-NLS-1$
-						varcollector.add(new CFVariable(crossfire(), this, (String) entry.getKey(), null, info));
-					}
-				}
-			}
-			else {
-				varcollector.add(
-						new CFVariable(
-								crossfire(), 
-								this, 
-								(String) entry.getKey(), 
-								null, 
-								null));
+				varcollector.add(new CFVariable(crossfire(), this, (String) entry.getKey(), ref, info));
 			}
 		}
 	}
@@ -275,7 +254,7 @@ public class CFStackFrame extends CFMirror implements StackFrame {
 		if(CFUndefinedValue.UNDEFINED.equals(type)) {
 			return crossfire().mirrorOfUndefined();
 		}
-		if(Attributes.NUMBER.equals(type)) {
+		if(CFNumberValue.NUMBER.equals(type)) {
 			//could be NaN, Infinity or -Infinity, check for strings
 			Object o = map.get(Attributes.VALUE);
 			if(o instanceof Number) {
