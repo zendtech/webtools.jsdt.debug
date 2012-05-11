@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2011 IBM Corporation and others.
+ * Copyright (c) 2010, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -30,10 +30,6 @@ public interface Attributes {
 	 */
 	public static final String BODY = "body"; //$NON-NLS-1$
 	/**
-	 * The type "boolean"
-	 */
-	public static final String BOOLEAN = "boolean"; //$NON-NLS-1$
- 	/**
 	 * The "breakpoint" attribute
 	 */
 	public static final String BREAKPOINT = "breakpoint"; //$NON-NLS-1$
@@ -42,10 +38,6 @@ public interface Attributes {
 	 */
 	public static final String BREAKPOINTS = "breakpoints"; //$NON-NLS-1$
 	/**
-	 * The "category" attribute
-	 */
-	public static final String CATEGORY = "category"; //$NON-NLS-1$
-	/**
 	 * The "callee attribute"
 	 */
 	public static final String CALLEE = "callee"; //$NON-NLS-1$
@@ -53,6 +45,10 @@ public interface Attributes {
 	 * The "callingFrame" attribute
 	 */
 	public static final String CALLING_FRAME = "callingFrame"; //$NON-NLS-1$
+	/**
+	 * The "category" attribute
+	 */
+	public static final String CATEGORY = "category"; //$NON-NLS-1$
 	/**
 	 * The code attribute for this packet
 	 */
@@ -78,10 +74,6 @@ public interface Attributes {
 	 */
 	public static final String CONSTRUCTOR = "constructor"; //$NON-NLS-1$
 	/**
-	 * the "context_href" attribute
-	 */
-	public static final String CONTEXT_HREF = "context_href"; //$NON-NLS-1$
-	/**
 	 * The "contextId" attribute
 	 */
 	public static final String CONTEXT_ID = "contextId"; //$NON-NLS-1$
@@ -93,10 +85,6 @@ public interface Attributes {
 	 * the "current" attribute
 	 */
 	public static final String CURRENT = "current"; //$NON-NLS-1$
-	/**
-	 * The "data" attribute
-	 */
-	public static final String DATA = "data"; //$NON-NLS-1$
 	/**
 	 * The "enabled" argument
 	 */
@@ -134,10 +122,6 @@ public interface Attributes {
 	 */
 	public static final String FRAME_INDEX = "frameIndex"; //$NON-NLS-1$
 	/**
-	 * The "frameNumber" argument
-	 */
-	public static final String FRAME_NUMBER = "frameNumber"; //$NON-NLS-1$
-	/**
 	 * The "frames" attribute
 	 */
 	public static final String FRAMES = "frames"; //$NON-NLS-1$
@@ -146,13 +130,13 @@ public interface Attributes {
 	 */
 	public static final String FROM_FRAME = "fromFrame"; //$NON-NLS-1$
 	/**
-	 * The "functionName" attribute
-	 */
-	public static final String FUNCTION_NAME = "functionName"; //$NON-NLS-1$
-	/**
 	 * The type "function"
 	 */
 	public static final String FUNCTION = "function"; //$NON-NLS-1$
+	/**
+	 * The "functionName" attribute
+	 */
+	public static final String FUNCTION_NAME = "functionName"; //$NON-NLS-1$
 	/**
 	 * The "handle" attribute
 	 */
@@ -170,10 +154,6 @@ public interface Attributes {
 	 */
 	public static final String HIT_COUNT = "hitCount"; //$NON-NLS-1$
 	/**
-	 * The "href" attribute
-	 */
-	public static final String HREF = "href"; //$NON-NLS-1$
-	/**
 	 * The "includeScopes" attribute
 	 */
 	public static final String INCLUDE_SCOPES = "includeScopes"; //$NON-NLS-1$
@@ -185,10 +165,6 @@ public interface Attributes {
 	 * The "index" attribute
 	 */
 	public static final String INDEX = "index"; //$NON-NLS-1$
-	/**
-	 * The "isConstructing" attribute
-	 */
-	public static final String IS_CONSTRUCTING = "isConstructing"; //$NON-NLS-1$
 	/**
 	 * the "isDebugger" attribute
 	 */
@@ -206,13 +182,13 @@ public interface Attributes {
 	 */
 	public static final String LINE_COUNT = "lineCount"; //$NON-NLS-1$
 	/**
-	 * The "lineNumber" attribute
-	 */
-	public static final String LINE_NUMBER = "lineNumber"; //$NON-NLS-1$
-	/**
 	 * The "lineNo" attribute
 	 */
 	public static final String LINE_NO = "lineNo"; //$NON-NLS-1$
+	/**
+	 * The "lineNumber" attribute
+	 */
+	public static final String LINE_NUMBER = "lineNumber"; //$NON-NLS-1$
 	/**
 	 * The "lineOffset" attribute
 	 */
@@ -230,17 +206,9 @@ public interface Attributes {
 	 */
 	public static final String MESSAGE = "message"; //$NON-NLS-1$
 	/**
-	 * The "newContextId" attribute
+	 * The "name" attribute
 	 */
-	public static final String NEW_CONTEXT_ID = "newContextId"; //$NON-NLS-1$
-	/**
-	 * The type "number"
-	 */
-	public static final String NUMBER = "number"; //$NON-NLS-1$
-	/**
-	 * The type "object"
-	 */
-	public static final String OBJECT = "object"; //$NON-NLS-1$
+	public static final String NAME = "name"; //$NON-NLS-1$
 	/**
 	 * The type "proto"
 	 */
@@ -266,13 +234,13 @@ public interface Attributes {
 	 */
 	public static final String SCOPE = "scope"; //$NON-NLS-1$
 	/**
-	 * The "scopes" attribute
-	 */
-	public static final String SCOPES = "scopes"; //$NON-NLS-1$
-	/**
 	 * The "scopeIndexes" attribute
 	 */
 	public static final String SCOPE_INDEXES = "scopeIndexes"; //$NON-NLS-1$
+	/**
+	 * The "scopes" attribute
+	 */
+	public static final String SCOPES = "scopes"; //$NON-NLS-1$
 	/**
 	 * The "script" attribute
 	 */
@@ -314,21 +282,9 @@ public interface Attributes {
 	 */
 	public static final String STEPACTION = "stepAction"; //$NON-NLS-1$
 	/**
-	 * The type "string"
-	 */
-	public static final String STRING = "string"; //$NON-NLS-1$
-	/**
-	 * The "this" attribute
-	 */
-	public static final String THIS = "this"; //$NON-NLS-1$
-	/**
 	 * The thisValue" attribute
 	 */
 	public static final String THIS_VALUE = "thisValue"; //$NON-NLS-1$
-	/**
-	 * the "toFrame" attribute
-	 */
-	public static final String TO_FRAME = "toFrame"; //$NON-NLS-1$
 	/**
 	 * The "tools" attribute
 	 */

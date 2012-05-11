@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2010, 2011 IBM Corporation and others.
+ * Copyright (c) 2010, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,7 +13,6 @@ package org.eclipse.wst.jsdt.debug.internal.crossfire.jsdi;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -83,9 +82,13 @@ public class CFStackFrame extends CFMirror implements StackFrame {
 			}
 			for (Iterator i = list.iterator(); i.hasNext();) {
 				Map map = (Map) i.next();
+				String name = (String) map.get(Attributes.NAME);
+				if(name == null) {
+					name = Messages.CFStackFrame_0;
+				}
 				Map scope = (Map)map.get(Attributes.SCOPE);
 				if(scope != null) {
-					vars.add(0, new CFVariable(crossfire(), this, "Enclosing Scope", (Number) scope.get(Attributes.HANDLE), scope)); //$NON-NLS-1$
+					vars.add(0, new CFVariable(crossfire(), this, name, (Number) scope.get(Attributes.HANDLE), scope));
 				}
 			}
 		}
@@ -109,8 +112,8 @@ public class CFStackFrame extends CFMirror implements StackFrame {
 			else {
 				vars = new ArrayList();
 			}
-			Map thismap = (Map) json.get(Attributes.THIS); 
-			thisvar = new CFVariable(crossfire(), this, Attributes.THIS, null, (thismap == null ? new HashMap(0) : thismap));
+			Map thismap = (Map) json.get(CFObjectReference.THIS);
+			thisvar = new CFVariable(crossfire(), this, CFObjectReference.THIS, null, thismap);
 		}
 	}
 	
@@ -121,24 +124,12 @@ public class CFStackFrame extends CFMirror implements StackFrame {
 			if(entry.getValue() instanceof Map) {
 				Map info  = (Map) entry.getValue();
 				Object obj = info.get(Attributes.HANDLE);
+				Number ref = null;
 				if(obj instanceof Number) {
-					varcollector.add(
-							new CFVariable(
-									crossfire(), 
-									this, 
-									(String) entry.getKey(), 
-									(Number) obj, 
-									info));
+					ref = (Number) obj;
 				}
-			}
-			else {
-				varcollector.add(
-						new CFVariable(
-								crossfire(), 
-								this, 
-								(String) entry.getKey(), 
-								null, 
-								null));
+				//not an initialized object, try to see if the map has a type (or not null)
+				varcollector.add(new CFVariable(crossfire(), this, (String) entry.getKey(), ref, info));
 			}
 		}
 	}
@@ -262,7 +253,7 @@ public class CFStackFrame extends CFMirror implements StackFrame {
 		if(CFUndefinedValue.UNDEFINED.equals(type)) {
 			return crossfire().mirrorOfUndefined();
 		}
-		if(Attributes.NUMBER.equals(type)) {
+		if(CFNumberValue.NUMBER.equals(type)) {
 			//could be NaN, Infinity or -Infinity, check for strings
 			Object o = map.get(Attributes.VALUE);
 			if(o instanceof Number) {
