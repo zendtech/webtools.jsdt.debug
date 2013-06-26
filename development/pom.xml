@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.eclipse.webtools.jsdt.debug</groupId>
+  <artifactId>development</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <packaging>pom</packaging>
+   <parent>
+    <groupId>org.eclipse.webtools.jsdt.debug</groupId>
+    <artifactId>debug</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+  </parent>
+  <modules>
+    <module>org.eclipse.wst.jsdt.debug.chrome</module>
+    <module>org.eclipse.wst.jsdt.debug.ie</module>
+    <module>org.eclipse.wst.jsdt.debug.jsd2</module>
+    <module>org.eclipse.wst.jsdt.debug.node</module>
+    <module>org.eclipse.wst.jsdt.debug.opera</module>
+  </modules>
+</project>
