@@ -11,6 +11,7 @@
  -->
 
 <plugin>
+<!--
    <extension
          point="org.eclipse.debug.ui.launchConfigurationTypeImages">
       <launchConfigurationTypeImage
@@ -603,4 +604,5 @@
    <extension point="org.eclipse.wst.jsdt.web.ui.breakpointAdapter">
       <adapter class="org.eclipse.wst.jsdt.debug.internal.ui.breakpoints.ToggleBreakpointAdapter"/>
    </extension>
+   -->
 </plugin>
