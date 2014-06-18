@@ -11,6 +11,7 @@
  -->
 
 <plugin>
+<!--
    <extension-point id="launchingConnectors" name="%connectorsExtPoint.name" schema="schema/launchingConnectors.exsd"/>
    <extension-point id="breakpointParticipants" name="%breakpointParticipantsExt.name" schema="schema/breakpointParticipants.exsd"/>
    <extension-point id="scriptResolvers" name="%scriptResolversExt.name" schema="schema/scriptResolvers.exsd"/>
@@ -162,5 +163,5 @@
             id="org.eclipse.wst.jsdt.debug.core.source.path.computer">
       </sourcePathComputer>
    </extension>
-
+-->
 </plugin>
